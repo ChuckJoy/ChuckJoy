@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>My first three.js app</title>
+		<style>
+			body { margin: 0; }
+		</style>
+	</head>
+	<body>
+		<script type="module">
+			import * as THREE from 'https://unpkg.com/three/build/three.module.js';
+
+			// Our Javascript will go here.
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+        scene.background = './background_image.jpg'
+
+        const geometry = new THREE.TetrahedronGeometry( 1, 1 );
+        const geometry2 = new THREE.BoxGeometry( -2, 2, 1 );
+        const material = new THREE.MeshBasicMaterial( { color: 0x00000ff, opacity: 1.0, transparent: true, wireframe: false , vertexColors: true } );
+        const material2 = new THREE.MeshBasicMaterial( { color: 0xff0003, wireframe: false , transparent: true} );
+        const cube = new THREE.Mesh( geometry2, material2 );
+        const tetra = new THREE.Mesh( geometry, material );
+        scene.add( cube );
+        scene.add( tetra );
+        
+        camera.position.z = 3;
+       // tetra.position.x += 1;
+       tetra.receiveShadow = true;
+       tetra.wireframe  = true;
+       
+       console.log('pos x y' , tetra.position.x, tetra.position.y) 
+       console.log('tetra' , tetra ) 
+       console.log('cube' , cube ) 
+      console.log('scene' , scene ) 
+      console.log('material' , material ) 
+
+    function animate() {
+	    requestAnimationFrame( animate );
+
+       // tetra.rotation.x += 0.005;
+        cube.rotation.x += 0.01;
+        cube.rotation.y += 0.01;
+        tetra.position.x += 0.0091;
+        if (tetra.position.x >= 5.5)  { tetra.position.x = -5.5 ;  console.log('reset x') }    
+       // console.log('pos x y'  , tetra.position.x) 
+
+	    renderer.render( scene, camera );
+        }
+    animate();
+
+
+		</script>
+	</body>
+</html>

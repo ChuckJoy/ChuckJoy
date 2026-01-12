@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>RC505 MkII Simulator - Pro Suite v7</title>
+    <style>
+        :root { --boss-red: #d32f2f; --panel-gray: #1a1a1a; --lcd-blue: #00d4ff; --bg: #0a0a0a; }
+        body { background: var(--bg); color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        
+        /* Global Header */
+        .transport-bar { width: 1000px; background: #222; padding: 20px; display: flex; justify-content: space-between; border-bottom: 3px solid var(--boss-red); border-radius: 8px 8px 0 0; align-items: center; box-sizing: border-box; }
+        .master-container { display: grid; grid-template-columns: 1fr 320px; gap: 20px; background: var(--panel-gray); padding: 20px; width: 1000px; border: 1px solid #333; box-sizing: border-box; }
+        
+        /* Track Display */
+        .looper-section { display: flex; flex-direction: column; gap: 10px; }
+        .track { background: #111; padding: 15px; border-radius: 6px; border: 1px solid #333; display: grid; grid-template-columns: 50px 80px 1fr 150px; gap: 15px; align-items: center; }
+        .wf-canvas { width: 100%; height: 50px; background: #000; border: 1px solid #222; border-radius: 4px; }
+        
+        /* Controls */
+        .sidebar { display: flex; flex-direction: column; gap: 15px; }
+        .module { background: #181818; padding: 15px; border-left: 4px solid var(--boss-red); border-radius: 4px; }
+        .xy-pad { width: 100%; height: 150px; background: #000; border: 1px solid var(--lcd-blue); position: relative; cursor: crosshair; touch-action: none; }
+        .xy-cursor { width: 15px; height: 15px; border-radius: 50%; position: absolute; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 5px rgba(255,255,255,0.5); border: 2px solid #fff; }
+        #cursor { background: var(--lcd-blue); }
+        #cursor2 { background: #ff0055; }
+        #cursor3 { background: #00ff55; }
+        
+        .rhythm-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-top: 10px; }
+        .step { height: 12px; background: #333; border-radius: 2px; }
+        .step.active { background: var(--lcd-blue); box-shadow: 0 0 8px var(--lcd-blue); }
+
+        .btn { padding: 10px 20px; border: none; cursor: pointer; font-weight: bold; border-radius: 4px; background: #444; color: white; transition: 0.2s; text-transform: uppercase; font-size: 0.8rem; }
+        .btn:hover { background: #555; }
+        .btn.active { background: var(--boss-red); }
+        .play-btn { background: var(--boss-red); font-size: 1rem; }
+        
+        /* Individual Track Controls */
+        .track-play-btn { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #555; background: #222; color: #fff; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .track-play-btn:hover { border-color: var(--lcd-blue); color: var(--lcd-blue); }
+        .track-play-btn.playing { background: var(--lcd-blue); color: #000; border-color: var(--lcd-blue); box-shadow: 0 0 10px var(--lcd-blue); }
+
+        .load-btn { width: 100%; padding: 5px; font-size: 10px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer; background: #333; color: #aaa; border: 1px solid #444; border-radius: 3px; }
+        .load-btn:hover { background: #444; color: #fff; }
+
+        .track-timer { font-family: monospace; color: var(--lcd-blue); font-size: 12px; margin-top: 4px; text-align: center; }
+
+        input[type="range"] { width: 100%; accent-color: var(--boss-red); cursor: pointer; }
+        select { background: #000; color: #fff; border: 1px solid #444; padding: 8px; width: 100%; border-radius: 4px; }
+        
+        #programSelect { width: 250px; margin: 0 10px; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+<div class="transport-bar">
+    <div style="display:flex; gap:10px;">
+        <button class="btn play-btn" id="masterPlay">▶ Start All</button>
+        <button class="btn" id="masterStop" style="background:#555">■ Stop</button>
+    </div>
+    <div id="clockDisplay" style="font-family:monospace; color:var(--lcd-blue); font-size:2rem;">00:00:00</div>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
+        <button class="btn" onclick="document.getElementById('folderInput').click()">📂 Setup Library (Direct Parse)</button>
+        
+        <select id="programSelect">
+            <option value="">-- Select Program --</option>
+        </select>
+        
+        <button class="btn" id="masterRecord" style="border: 1px solid var(--boss-red); color: var(--boss-red); background: transparent;">● Rec Mix</button>
+    </div>
+</div>
+
+<div class="master-container">
+    <div class="looper-section" id="mixerGrid">
+        </div>
+
+    <div class="sidebar">
+        <div class="module">
+            <h4 style="margin:0 0 10px 0; color:var(--boss-red)">DRONE SYNTH</h4>
+            <div class="xy-pad" id="dronePad">
+                <div class="xy-cursor" id="cursor" style="left:50%; top:20%;"></div>
+                <div class="xy-cursor" id="cursor2" style="left:20%; top:80%;"></div>
+                <div class="xy-cursor" id="cursor3" style="left:80%; top:80%;"></div>
+            </div>
+            
+            <div style="margin-top:10px; display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px;">
+                <button class="btn" id="holdBtn1" style="border:1px solid var(--lcd-blue); color:var(--lcd-blue); padding:10px 5px;">HOLD 1</button>
+                <button class="btn" id="holdBtn2" style="border:1px solid #ff0055; color:#ff0055; padding:10px 5px;">HOLD 2</button>
+                <button class="btn" id="holdBtn3" style="border:1px solid #00ff55; color:#00ff55; padding:10px 5px;">HOLD 3</button>
+                
+                <select id="scaleSelect" style="grid-column: 1 / span 3">
+                    <option value="Hijaz">Scale: Hijaz</option>
+                    <option value="MinorPent">Scale: Minor Pent</option>
+                </select>
+                <!-- Drone Transport & Volume -->
+                <button class="btn" id="dronePlayBtn">▶ Drone</button>
+                <button class="btn" id="droneStopBtn" style="background:#555; grid-column: 2 / span 2;">■ Stop All Drone</button>
+                <div style="grid-column: 1 / span 3; margin-top:5px;">
+                    <small>DRONE MASTER VOL</small>
+                    <input type="range" min="0" max="1" step="0.01" value="0.5" id="droneVol">
+                </div>
+            </div>
+        </div>
+
+        <div class="module" style="border-left-color: var(--lcd-blue)">
+            <h4 style="margin:0 0 10px 0; color:var(--lcd-blue)">RHYTHM CLOCK</h4>
+            <select id="kitSelect">
+                <option value="Djembe">Djembe World Beat</option>
+                <option value="Tabla">Tabla Indian Beat</option>
+            </select>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px; margin-top:10px;">
+                 <button class="btn" id="rhythmPlayBtn">▶ Rhythm</button>
+                 <button class="btn" id="rhythmStopBtn" style="background:#555">■ Stop</button>
+                 <div style="grid-column: 1 / span 2; margin-top:5px;">
+                    <small>RHYTHM VOLUME</small>
+                    <input type="range" min="0" max="1" step="0.01" value="0.8" id="rhythmVol">
+                </div>
+            </div>
+            <div class="rhythm-grid" id="stepGrid"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Global State
+    let programData = {};
+    let libraryFiles = {}; // "001_1.wav" -> File
+    
+    // Audio Context & Nodes
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const trackBuffers = [null, null, null, null, null];
+    const trackImages = [null, null, null, null, null];
+    const trackGains = [];
+    const activeSources = [null, null, null, null, null];
+    const trackStartTimes = [0, 0, 0, 0, 0]; 
+    const masterBus = audioCtx.createGain();
+    masterBus.connect(audioCtx.destination);
+    
+    // Master Clock State
+    let masterStartTime = 0;
+    let isMasterPlaying = false;
+
+    // Initialize Tracks
+    const mixerGrid = document.getElementById('mixerGrid');
+    for (let i = 0; i < 5; i++) {
+        const gain = audioCtx.createGain();
+        gain.connect(masterBus);
+        trackGains.push(gain);
+
+        const trackDiv = document.createElement('div');
+        trackDiv.className = 'track';
+        
+        let html = "";
+        html += '<button class="track-play-btn" id="btn-' + i + '" onclick="toggleTrack(' + i + ')">▶</button>';
+        html += '<div style="width: 80px; text-align: center;">';
+        html += '<b style="color:var(--lcd-blue)">TR 0' + (i+1) + '</b><br>';
+        html += '<input type="file" id="file-' + i + '" accept="audio/*" multiple hidden>';
+        html += '<button class="load-btn" id="load-btn-' + i + '" onclick="document.getElementById(\'file-' + i + '\').click()">Load File</button>';
+        html += '</div>';
+        html += '<div style="position:relative; width:100%; height:50px;">';
+        html += '<canvas id="wf-' + i + '" class="wf-canvas" style="position:absolute; left:0; top:0;"></canvas>';
+        html += '</div>';
+        html += '<div>';
+        html += '<small>VOLUME</small>';
+        html += '<input type="range" min="0" max="200" value="100" id="vol-' + i + '">';
+        html += '<div class="track-timer" id="timer-' + i + '">00:00</div>';
+        html += '</div>';
+        
+        trackDiv.innerHTML = html;
+        mixerGrid.appendChild(trackDiv);
+
+        document.getElementById('vol-' + i).oninput = (e) => {
+            trackGains[i].gain.setTargetAtTime(e.target.value / 100, audioCtx.currentTime, 0.05);
+        };
+
+        document.getElementById('file-' + i).onchange = async (e) => {
+            const files = Array.from(e.target.files);
+            if(files.length === 0) return;
+            await loadTrackFile(files[0], i);
+        };
+    }
+
+    // --- DIRECT PARSING LOGIC (v7) ---
+    document.getElementById('folderInput').onchange = async (e) => {
+        const files = Array.from(e.target.files);
+        libraryFiles = {};
+        const memoryFiles = {}; 
+        let audioCount = 0;
+        
+        console.log("Processing " + files.length + " files...");
+
+        for (const f of files) {
+            const name = f.name;
+            if(name.match(/\.(wav|mp3)$/i)) {
+                libraryFiles[name.toLowerCase()] = f;
+                audioCount++;
+            } 
+            if (name.toUpperCase().startsWith("MEMORY") && name.toUpperCase().endsWith(".RC0")) {
+                const match = name.match(/MEMORY(\d{3})A\.RC0/i);
+                if (match) {
+                    memoryFiles[match[1]] = f;
+                }
+            }
+        }
+
+        if (Object.keys(memoryFiles).length === 0) {
+            alert("No MEMORYxxx.RC0 files found.");
+            return;
+        }
+
+        programData = {};
+        let parsedCount = 0;
+
+        for (const memId of Object.keys(memoryFiles).sort()) {
+            const file = memoryFiles[memId];
+            try {
+                const text = await file.text();
+                const data = parseRC0(text, memId);
+                
+                data.tracks.forEach(track => {
+                    const expectedName = (memId + "_" + track.index + ".wav").toLowerCase();
+                    if (libraryFiles[expectedName]) {
+                        track.file = libraryFiles[expectedName].name;
+                        track.status = "SAVED";
+                    } else {
+                        track.status = "EMPTY";
+                        track.file = null;
+                    }
+                });
+
+                programData[memId] = data;
+                parsedCount++;
+            } catch (err) {
+                console.error("Error parsing memory " + memId, err);
+            }
+        }
+
+        populateProgramSelect();
+        downloadObjectAsJson(programData, 'rc505_library.json');
+        alert("Setup Complete. Parsed " + parsedCount + " programs.");
+    };
+
+    function parseRC0(content, memId) {
+        // --- Helper: Extract Tag Value ---
+        const getTag = (parent, child) => {
+            // Updated regex to be more specific to the XML-ish block structure
+            const parentRegex = new RegExp("<" + parent + ">([\s\S]*?)<\/" + parent + ">", 'i');
+            const parentMatch = content.match(parentRegex);
+            if (parentMatch) {
+                const inner = parentMatch[1];
+                const childRegex = new RegExp("<" + child + ">(\d+)<\/" + child + ">", 'i');
+                const childMatch = inner.match(childRegex);
+                return childMatch ? parseInt(childMatch[1]) : null;
+            }
+            return null;
+        };
+
+        // --- Helper: Extract Real Name ---
+        let realName = "";
+        const nameBlockMatch = content.match(/<NAME>([\s\S]*?)<\/NAME>/i);
+        if (nameBlockMatch) {
+            const inner = nameBlockMatch[1];
+            const tags = "ABCDEFGHIJKL";
+            for (let i = 0; i < tags.length; i++) {
+                const t = tags[i];
+                const charMatch = inner.match(new RegExp("<" + t + ">(\d+)<\/" + t + ">"));
+                if (charMatch) {
+                    const code = parseInt(charMatch[1]);
+                    if (code > 0) realName += String.fromCharCode(code);
+                }
+            }
+        }
+        realName = realName.trim() || ("Memory " + memId);
+
+        // --- Extract BPM ---
+        let bpm = 120.0;
+        const bpmVal = getTag("MASTER", "A");
+        if (bpmVal !== null && bpmVal > 0) bpm = bpmVal / 10.0;
+
+        // --- Extract Track Vols ---
+        const tracks = [];
+        for (let i = 1; i <= 5; i++) {
+            const vol = getTag("TRACK" + i, "D");
+            tracks.push({
+                index: i,
+                vol: vol !== null ? vol : 100,
+                status: "EMPTY", 
+                file: null
+            });
+        }
+
+        return {
+            id: memId,
+            name: realName,
+            bpm: bpm,
+            tracks: tracks
+        };
+    }
+
+    function populateProgramSelect() {
+        const progSelect = document.getElementById('programSelect');
+        progSelect.innerHTML = '<option value="">-- Select Program --</option>';
+        const sortedIds = Object.keys(programData).sort();
+        sortedIds.forEach(id => {
+            const prog = programData[id];
+            const opt = document.createElement('option');
+            opt.value = prog.id;
+            
+            // Only show BPM if it is NOT the default 120
+            let bpmDisplay = "";
+            if (prog.bpm !== 120.0) {
+                bpmDisplay = " (" + prog.bpm + " BPM)";
+            }
+            
+            opt.innerText = prog.id + ": " + prog.name + bpmDisplay;
+            progSelect.appendChild(opt);
+        });
+    }
+
+    function downloadObjectAsJson(exportObj, exportName){
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 2));
+        const a = document.createElement('a');
+        a.setAttribute("href", dataStr);
+        a.setAttribute("download", exportName);
+        document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    // --- PROGRAM LOADING ---
+    document.getElementById('programSelect').onchange = async (e) => {
+        const memId = e.target.value;
+        if(!memId) return;
+        
+        document.getElementById('masterStop').click();
+        const prog = programData[memId];
+        if(prog) {
+            console.log("Loading Program " + memId + ": " + prog.name);
+            for(let t=0; t<5; t++) {
+                const trackInfo = prog.tracks[t];
+                const trackIdx = t;
+                const vol = trackInfo.vol;
+                const slider = document.getElementById("vol-" + trackIdx);
+                if(slider) slider.value = vol;
+                trackGains[trackIdx].gain.setTargetAtTime(vol / 100, audioCtx.currentTime, 0.1);
+
+                const btn = document.getElementById("load-btn-" + trackIdx);
+                const canvas = document.getElementById("wf-" + trackIdx);
+                const ctx = canvas.getContext('2d');
+                
+                if(trackInfo.file && trackInfo.status !== "EMPTY") {
+                    const file = libraryFiles[trackInfo.file.toLowerCase()];
+                    if(file) {
+                        btn.innerText = "Loading...";
+                        await loadTrackFile(file, trackIdx);
+                    } else {
+                        trackBuffers[trackIdx] = null;
+                        trackImages[trackIdx] = null;
+                        btn.innerText = "MISSING: " + trackInfo.file;
+                        ctx.clearRect(0,0,canvas.width,canvas.height);
+                    }
+                } else {
+                    trackBuffers[trackIdx] = null;
+                    trackImages[trackIdx] = null;
+                    btn.innerText = "EMPTY";
+                    ctx.clearRect(0,0,canvas.width,canvas.height);
+                }
+            }
+        }
+    };
+
+    async function loadTrackFile(file, trackIndex) {
+        if(!file) return;
+        try {
+            const buffer = await file.arrayBuffer();
+            const decoded = await audioCtx.decodeAudioData(buffer);
+            trackBuffers[trackIndex] = decoded;
+            generateWaveformImage(decoded, trackIndex);
+            const btn = document.getElementById("load-btn-" + trackIndex);
+            if(btn) btn.innerText = file.name;
+        } catch (err) {
+            console.error("Error loading file:", err);
+        }
+    }
+    
+    function generateWaveformImage(buffer, trackIndex) {
+        const canvas = document.createElement('canvas');
+        const visualCanvas = document.getElementById("wf-" + trackIndex);
+        canvas.width = visualCanvas.clientWidth || 300; 
+        canvas.height = visualCanvas.clientHeight || 50;
+        const ctx = canvas.getContext('2d');
+        const data = buffer.getChannelData(0);
+        const step = Math.ceil(data.length / canvas.width);
+        let maxAmp = 0;
+        for (let i = 0; i < data.length; i += 50) { 
+            if (Math.abs(data[i]) > maxAmp) maxAmp = Math.abs(data[i]);
+        }
+        const scale = maxAmp > 0 ? (1 / maxAmp) : 1;
+        ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width, canvas.height);
+        ctx.strokeStyle = '#00d4ff'; ctx.beginPath();
+        const center = canvas.height / 2;
+        const availHeight = (canvas.height / 2) - 2;
+        for(let i=0; i<canvas.width; i++) {
+            let val = data[i * step] * scale;
+            ctx.moveTo(i, center); ctx.lineTo(i, center + (val * availHeight));
+        }
+        ctx.stroke(); trackImages[trackIndex] = canvas;
+    }
+
+    function updateVisuals() {
+        const now = audioCtx.currentTime;
+        if(isMasterPlaying) {
+             const totalSeconds = now - masterStartTime;
+             const h = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+             const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+             const s = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
+             const ms = Math.floor((totalSeconds % 1) * 100).toString().padStart(2, '0');
+             document.getElementById('clockDisplay').innerText = h + ":" + m + ":" + s + "." + ms;
+        }
+        for(let i=0; i<5; i++) {
+            const canvas = document.getElementById("wf-" + i);
+            const ctx = canvas.getContext('2d');
+            if(canvas.width !== canvas.clientWidth) canvas.width = canvas.clientWidth;
+            if(canvas.height !== canvas.clientHeight) canvas.height = canvas.clientHeight;
+            if(trackImages[i]) {
+                ctx.drawImage(trackImages[i], 0, 0, canvas.width, canvas.height);
+            } else {
+                ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            if(activeSources[i] && trackBuffers[i] && trackBuffers[i].duration > 0) {
+                const elapsed = (now - trackStartTimes[i]) % trackBuffers[i].duration;
+                if(elapsed >= 0) {
+                    const timerEl = document.getElementById("timer-" + i);
+                    if(timerEl) timerEl.innerText = Math.floor(elapsed).toString().padStart(2,'0') + ":" + Math.floor((elapsed % 1)*100).toString().padStart(2,'0');
+                    const x = (elapsed / trackBuffers[i].duration) * canvas.width;
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.5)"; ctx.fillRect(x, 0, 2, canvas.height); 
+                }
+            }
+        }
+        requestAnimationFrame(updateVisuals);
+    }
+    updateVisuals(); 
+
+    function toggleTrack(i) {
+        if(activeSources[i]) {
+            activeSources[i].stop(); activeSources[i] = null;
+            document.getElementById("btn-" + i).classList.remove('playing');
+            document.getElementById("btn-" + i).innerText = "▶";
+        } else {
+            if(!trackBuffers[i]) return;
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const s = audioCtx.createBufferSource();
+            s.buffer = trackBuffers[i]; s.loop = true;
+            s.connect(trackGains[i]); s.start(audioCtx.currentTime); 
+            activeSources[i] = s; trackStartTimes[i] = audioCtx.currentTime; 
+            document.getElementById("btn-" + i).classList.add('playing');
+            document.getElementById("btn-" + i).innerText = "■";
+        }
+    }
+
+    // --- Drone & Rhythm (Condensed) ---
+    const droneMasterGain = audioCtx.createGain(); droneMasterGain.gain.value = 0; 
+    const droneVolNode = audioCtx.createGain(); droneVolNode.gain.value = 0.5; 
+    droneMasterGain.connect(droneVolNode); droneVolNode.connect(masterBus);
+    document.getElementById('droneVol').oninput = (e) => droneVolNode.gain.setTargetAtTime(e.target.value, audioCtx.currentTime, 0.05);
+
+    const droneGroups = [
+        { el: document.getElementById('cursor'),  x: 0.5, y: 0.2, filter: null, voices: [], type: 'sawtooth', holding: false, btn: document.getElementById('holdBtn1') }, 
+        { el: document.getElementById('cursor2'), x: 0.2, y: 0.8, filter: null, voices: [], type: 'square',   holding: false, btn: document.getElementById('holdBtn2') }, 
+        { el: document.getElementById('cursor3'), x: 0.8, y: 0.8, filter: null, voices: [], type: 'triangle', holding: false, btn: document.getElementById('holdBtn3') }
+    ];
+
+    droneGroups.forEach(g => {
+        g.filter = audioCtx.createBiquadFilter(); g.filter.connect(droneMasterGain);
+        for (let i = 0; i < 2; i++) {
+            const osc = audioCtx.createOscillator(); const vGain = audioCtx.createGain();
+            osc.type = g.type; vGain.gain.value = 0; osc.connect(vGain); vGain.connect(g.filter);
+            g.voices.push({osc, vGain}); osc.start();
+        }
+        g.btn.onclick = (e) => {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            g.holding = !g.holding; e.target.classList.toggle('active');
+            g.voices.forEach(v => v.vGain.gain.setTargetAtTime(g.holding ? 0.15 : 0, audioCtx.currentTime, 0.2));
+            if(g.holding) droneMasterGain.gain.setTargetAtTime(1, audioCtx.currentTime, 0.1);
+        };
+    });
+
+    const pad = document.getElementById('dronePad');
+    let activeG = -1;
+    pad.onmousedown = (e) => {
+        const rect = pad.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) / rect.width; const my = (e.clientY - rect.top) / rect.height;
+        let md = 100; droneGroups.forEach((g, i) => { const d = Math.hypot(g.x-mx, g.y-my); if(d < md){ md=d; activeG=i; } });
+        if(activeG !== -1) updateDrone(activeG, mx, my);
+    };
+    pad.onmousemove = (e) => { if(e.buttons === 1 && activeG !== -1) { const rect = pad.getBoundingClientRect(); updateDrone(activeG, (e.clientX-rect.left)/rect.width, (e.clientY-rect.top)/rect.height); } };
+    function updateDrone(idx, x, y) {
+        x = Math.max(0, Math.min(1, x)); y = Math.max(0, Math.min(1, y));
+        const g = droneGroups[idx]; g.x = x; g.y = y;
+        g.el.style.left = (x * 100) + '%'; g.el.style.top = (y * 100) + '%';
+        g.filter.frequency.setTargetAtTime(x * 5000 + 100, audioCtx.currentTime, 0.1);
+        const base = 60 * (1 + ((1-y) * 2)); 
+        g.voices.forEach((v, i) => v.osc.frequency.setTargetAtTime(base * (1 + (i*0.01)), audioCtx.currentTime, 0.1));
+    }
+
+    document.getElementById('dronePlayBtn').onclick = (e) => {
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        droneMasterGain.gain.setTargetAtTime(1, audioCtx.currentTime, 0.1); e.target.style.background = "var(--boss-red)";
+    };
+    document.getElementById('droneStopBtn').onclick = () => {
+        droneMasterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1); document.getElementById('dronePlayBtn').style.background = "#444";
+        droneGroups.forEach(g => { g.holding = false; g.btn.classList.remove('active'); g.voices.forEach(v => v.vGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1)); });
+    };
+
+    const rhythmVol = audioCtx.createGain(); rhythmVol.gain.value = 0.8; rhythmVol.connect(masterBus);
+    document.getElementById('rhythmVol').oninput = (e) => rhythmVol.gain.setTargetAtTime(e.target.value, audioCtx.currentTime, 0.05);
+    let isRhythm = false; let nTime = 0; let sIdx = 0;
+    const rKits = { Djembe: [1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,1], Tabla: [1,1,0,0,1,1,0,0,1,1,0,0,1,1,1,1] };
+    function runClock() {
+        while (nTime < audioCtx.currentTime + 0.1) {
+            if (rKits[document.getElementById('kitSelect').value][sIdx]) {
+                const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.connect(g); g.connect(rhythmVol);
+                o.frequency.setValueAtTime(sIdx % 4 === 0 ? 120 : 70, nTime);
+                g.gain.setValueAtTime(0.2, nTime); g.gain.exponentialRampToValueAtTime(0.01, nTime + 0.1);
+                o.start(nTime); o.stop(nTime + 0.1);
+            }
+            nTime += (60 / 120 / 4); sIdx = (sIdx + 1) % 16;
+        }
+        if(isRhythm) setTimeout(runClock, 25);
+    }
+    document.getElementById('rhythmPlayBtn').onclick = (e) => { if(isRhythm) return; if(audioCtx.state === 'suspended') audioCtx.resume(); isRhythm = true; nTime = audioCtx.currentTime; runClock(); e.target.style.background = "var(--lcd-blue)"; e.target.style.color = "#000"; };
+    document.getElementById('rhythmStopBtn').onclick = () => { isRhythm = false; document.getElementById('rhythmPlayBtn').style.background = "#444"; document.getElementById('rhythmPlayBtn').style.color = "#fff"; };
+
+    document.getElementById('masterPlay').onclick = () => {
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        if(!isMasterPlaying) { masterStartTime = audioCtx.currentTime; isMasterPlaying = true; }
+        document.getElementById('rhythmPlayBtn').click(); document.getElementById('dronePlayBtn').click();
+        for(let i=0; i<5; i++) if(trackBuffers[i] && !activeSources[i]) toggleTrack(i);
+    };
+    document.getElementById('masterStop').onclick = () => {
+        isMasterPlaying = false; document.getElementById('clockDisplay').innerText = "00:00:00.00";
+        document.getElementById('rhythmStopBtn').click(); document.getElementById('droneStopBtn').click();
+        for(let i=0; i<5; i++) if(activeSources[i]) toggleTrack(i);
+    };
+
+    const dest = audioCtx.createMediaStreamDestination(); masterBus.connect(dest);
+    const rec = new MediaRecorder(dest.stream); let chunks = [];
+    document.getElementById('masterRecord').onclick = (e) => { if(rec.state === "inactive") { chunks=[]; rec.start(); e.target.style.background = "red"; } else { rec.stop(); e.target.style.background = "transparent"; } };
+    rec.ondataavailable = e => chunks.push(e.data);
+    rec.onstop = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(chunks, {type: 'audio/wav'})); a.download = 'RC505_Session.wav'; a.click(); };
+
+</script>
+</body>
+</html>

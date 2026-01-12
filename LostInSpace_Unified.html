@@ -1,0 +1,876 @@
+<!DOCTYPE html> 
+<html lang="en">
+	<head>
+		<title>LostInSpace Unified - 3D Graphics Playground</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=yes, minimum-scale=1.0, maximum-scale=1.0">
+	 	<link type="text/css" rel="stylesheet" href="main.css">    
+		<!-- Preload presets not strictly necessary with fetch, but kept for compatibility -->
+	</head>
+	<body>
+		
+		<!-- Video Elements for Textures -->
+		<video id="video" width="640" height="480" style="display:none" autoplay playsinline></video>
+		<video id="video2" width="640" height="480" style="display:none" autoplay playsinline></video>
+
+		<!-- Import maps polyfill -->
+		<script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+        <!-- Canvas for Audio Visualization (Hidden/Background use) -->
+        <canvas id="canvasCtx" width="1024" height="200" style="display:none;"></canvas> 
+	          	
+		<style>
+			.canvasCtx {
+			  background-color: #000000;
+			  color: rgb(84, 133, 212);
+			  padding: 16px;
+			  font-size: 16px;
+			  border: none;
+			  cursor: pointer;
+			  position: absolute;
+              bottom: 0;
+              left: 0;
+			  width: 100%;
+			  height: 200px;
+			  z-index: 1;
+              display: none; /* Controlled by JS */
+			}
+			 
+			.body {
+				background-color: #000;
+				color: #fff;
+                overflow: hidden;
+			}
+		</style>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "./build/three.module.js",
+					"three/addons/": "./jsm/"
+				}
+			}
+	    </script>
+ 
+	<script type="text/javascript" src="./dat.gui.min.js"></script>  
+       
+	<script type="module">
+
+			import * as THREE from 'three';
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+            // --- GLOBAL FLAGS & STATE ---
+            let loadedFlag = false;
+            let isFFTMode = false; // Toggled by URL param or GUI
+
+			let config = { 
+				geometryList: 'SphereGeo',
+				mgeometryList: 'CubeGeo',
+				m2geometryList: 'SphereGeo',      //now used for master balls 1
+				m3geometryList: 'OctahedronGeo',  //now used for master balls 2
+				mgsel: 'CubeGeo', // not used
+				gsel: 'SphereGeo',   
+				ggeometryList: '0',  
+                bgFade: 100 ,       // BACKGROUND Intensty = FADE OUT
+				geomode: 7,         // BACKGROUND texture:  0-video, 1-9 = images
+
+				objectMaterial: 0,  // Constellation Object:  0-video, 1-9 = images
+				masterMaterial: 3,  // Master Object:  0-video, 1-9 = images
+				masterMaterial2: 5, // Master Object2:  0-video, 1-9 = images
+				masterMaterial3: 7, //  Master Object3:  0-video, 1-9 = images
+
+				count: 48, 		// CONSTELLATION COUNT
+				radius: 46, 		// constelation radius
+				
+				scaleX: 0.5,		// Constellation object scale
+				scaleY: 0.5,
+				scaleZ: 0.5,
+				
+				mscaleX: 0.50,		// MASTER object scale
+				mscaleY: 0.50,
+				mscaleZ: 0.50,
+				
+				rotateX: 0.0,			// object rotation
+				rotateY: 0.0,
+				rotateZ: 0.0,
+				
+				mrotateX: 0.0,		// MASTER object rotation
+				mrotateY: 0.0,
+				mrotateZ: 0.0,
+				
+				crotateX: 2.00,		// constellation ADJUST 
+				crotateY: 0.01,
+				crotateZ: 0,
+				
+				positionX: 0,		// MASTER object position X  - ORTHAGONAL COORDINATES
+				positionY: 0,		// M object position Y
+				positionZ: 0,		// M object position Z 
+				
+				CamPosDist: 100,	// camera position R radius
+				CamPosPhi: 1.552,	// camera position Phi
+				CamPosTheta: 0.01,	// camera position 
+				CamPosX: 70,		// camera position X
+				CamPosY: 0,			// camera position Y
+				CamPosZ: 70,		// camera position Z
+				
+				autoCamSpeedPhi: 0.01,		// camera auto-position Phi
+				autoCamSpeedTheta: 0.01,	// camera auto-position Phi
+				autoCamPhiEN: false,		// camera auto-position Phi ENABLE
+				autoCamThetaEN: false,		// camera auto-position Theta ENABLE
+				autoCamEN: false,			// camera auto-position ENABLE
+				autoCamPhiREV: false,		// camera auto-position Phi REVERSE
+				autoCamThetaREV: false,		// camera auto-position Theta REVERSE
+				
+				objectEN: true, 
+				geotypeEN: true, 
+				countEN: false, 
+				radiusEN: false, 	 
+				scaleXEN: true,	 
+				scaleYEN: true,	
+				scaleZEN: true,	
+				mradiusEN: true,
+				mscaleXEN: true,	 
+				mscaleYEN: true,	
+				mscaleZEN: true,	
+				rotateXEN: true,			// object rotation
+				rotateYEN: true,
+				rotateZEN: true,
+				
+				mrotateXEN: true,		// MASTER object rotation
+				mrotateYEN: true,
+				mrotateZEN: true,
+				
+				crotateXEN: true,		// constellation ADJUST 
+				crotateYEN: true,
+				crotateZEN: true,
+				
+				positionXEN: true,	// MASTER object position X  - ORTHAGONAL COORDINATES
+				positionYEN: true,	// M object position Y
+				positionZEN: true,	// M object position Z 
+				 
+				mcrotateEN: true,
+				zoomEN: false,
+				mballs1EN: true,
+				mballs2EN: true,
+				dia1EN: true,
+				dia2EN: true,
+
+				AudioFFTHeight: 300,
+				SOUND_SENSITIVITY: 90,
+				SOUND_Threshold: 30,
+				AudioFFTcount: 512,
+				FREQ_RANGE_START: 0,
+				FREQ_RANGE_Percent:1.0, 
+				AUDIO_RESPONSIVE: false,
+				enableAudio: false,
+				enableFFT: true,
+
+				TestOscWaveform:'off', 
+				TestOscFreq:432,
+				TestOscVol: 75,
+				TIME_BPM: 120,          //bpm	
+    			LFO_BPM: 10,        	// 0.5-120
+				LFO_CX1: 0,
+				LFO_CY1: 0,
+				LFO_CZ1: 0,
+				LFO_CX2: 0,
+				LFO_CY2: 0,
+				LFO_CZ2: 0,
+				BPM_A: 6,
+				BPM_Peak: 30,
+				BPM_R: 8,
+				BPM_Base: 20,
+
+				LFO_EN: true,
+				LFO_P1: false,
+				LFO_P2: false,
+				LFO_P3: false,
+				LFO_P4: false,
+				LFO_CX1_flag: false,
+				LFO_CY1_flag: false,
+				LFO_CZ1_flag: false,
+				LFO_CX2_flag: false,
+				LFO_CY2_flag: false,
+				LFO_CZ2_flag: false,
+				autoXEN: true,
+				autoYEN: false,
+				autoZEN: false,
+				
+				BPMradiusEN: true,
+				BPMrotateXEN: true,
+				BPMrotateYEN: false,
+				BPMscaleEN: false,
+
+				autoX: 0.0001,
+				autoY: 0.0001,
+				autoZ: 0.0001,
+				autoCnt: 0.01,
+				autoRad: 0.1,
+				autoZoom: 0.01,
+				mrad: 1,
+				mcLines: true,
+				mcPath: true,
+				mcFaces: true,
+				mcobjradius: 2.5,
+				mcobjradius2: 3.1,
+				mcdiameter: 6,
+				mcdiameter2: 12,
+				NumberOfFrames: 240,   							// default 4 sec  = time until LOAD NEW URL = json config file
+				NextURL: './presets/Data_LIS_Config0001.json',	// NEW URL = json config file
+				NextSavedURL: './presets/Data_LIS_Config0001.json',	// NEW URL  name = json config file
+				mcrotate: 0.0,
+				gridEN: true,
+				nextFrameEN:  true,
+				textureBank: 5	,	// 0-5 banks
+                bgcolorR: 0,
+                bgcolorG: 127,
+                bgcolorB: 255,
+				useAltVideo: false
+
+			} ;
+ 
+		// MORE GLOBALS 	
+        	let  palette = {  backcolor3: [ 0,128,255 ]  } ;
+			let camera, scene, renderer, video, video2;
+			let texturev,texture,texture1,texture2,texture3,texture4,texture5,texture6,texture7,texture8,texture9;
+			let geometry,mgeometry;
+			let materialv,material,material1,material2,material3,material4,material5,material6,material7,material8,material9;
+			let mesh;
+			 
+			let points = [];
+			let LFO_DIR = true;
+			let LFO_Value = 0;
+			let myBPM = 0;
+			let myLFO = 0;
+			
+			const raycaster = new THREE.Raycaster();
+			const mouse = new THREE.Vector2( 1, 1 );
+
+			const color = new THREE.Color();
+			const white = new THREE.Color().setHex( 0xffffff );
+ 
+            // Audio Context Globals
+            let micanalyser, Fanalyser, sound, testosc;
+            let bufferLength = 0;
+            let mAudioDataArray, FdataArray, mAudioAvgArray;
+            let Acnt=1;
+            let canvasCtx;
+
+            // Mode detection
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('mode') === 'FFT') {
+                isFFTMode = true;
+                config.enableFFT = true;
+                config.AUDIO_RESPONSIVE = true;
+            } else {
+                isFFTMode = false;
+                config.enableFFT = false; // Disable by default in non-FFT mode
+                config.AUDIO_RESPONSIVE = false;
+            }
+
+            // --- INITIALIZATION ---
+
+			scene = new THREE.Scene();
+			video = document.getElementById( 'video' );
+			video2 = document.getElementById( 'video2' );
+
+			texture = new THREE.VideoTexture( video );
+			texturev = new THREE.VideoTexture( video2 );
+		
+            let tbank = 5;
+            if(typeof config.textureBank != 'undefined') { tbank = config.textureBank; }
+            LoadTexture9(tbank);
+
+            // Canvas for Audio Visualization
+            let canvasElement = document.getElementById('canvasCtx');
+            canvasCtx = canvasElement.getContext("2d");
+            // Resize canvas to window width
+            canvasElement.width = window.innerWidth;
+            if(isFFTMode) canvasElement.style.display = 'block';
+
+			renderer = new THREE.WebGLRenderer( { antialias: true, alpha:true, transparent:true, premultipliedAlpha:false } );
+			renderer.setPixelRatio( window.devicePixelRatio );
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			document.body.appendChild( renderer.domElement );
+			
+			camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 800 );
+			let controls = new OrbitControls( camera, renderer.domElement );
+			controls.damping = true;
+			controls.enablePan = false;
+			controls.enableZoom = true;
+			controls.dampingFactor = 0.05;
+			controls.screenSpacePanning =true;
+			controls.update();
+
+			const light = new THREE.DirectionalLight(0xFFFFFF, 1);
+			light.position.set(30, 2, 4);
+			scene.add(light);
+			
+			window.addEventListener( 'resize', onWindowResize );
+
+			const MENU_ITEM_list = {
+				'1-Sphere Objects': 'SphereGeo',
+				'2-Cube Objects': 'CubeGeo',
+				'3-Circle Objects': 'CircleGeo',
+				'4-Cone Objects': 'ConeGeo',
+				'5-Torus Objects': 'TorusGeo',
+				'6-Cylinder Objects': 'CylinderGeo',
+				'7-Dodecahedron Objects': 'DodecahedronGeo',
+				'8-Isosahedron Objects': 'IcosahedronGeo',
+				'9-Octahedron Objects': 'OctahedronGeo' ,
+				'10-Plane Objects': 'PlaneGeo',
+			 	'11-Tetrahedron Objects': 'TetraGeo'
+			};
+			const GMENU_ITEM_list = {
+				'1-Sphere Constellation1': '0',
+				'2-Sphere Constellation2': '1',
+				'3-Sphere Constellation3': '2',
+				'4-Cylinder Constellation1': '3',
+				'5-Cylinder Constellation2': '4',
+				'6-Circular Constellation': '5'
+			};
+			
+            let gui = new dat.GUI({ width: 320 });
+            SetupGUI();
+
+            // Video/Webcam Setup
+			if ( navigator.mediaDevices && navigator.mediaDevices.getUserMedia ) {
+				const constraints = { video: { width: 640, height: 480, facingMode: 'user' } };  
+				navigator.mediaDevices.getUserMedia( constraints ).then( function ( stream ) {
+					video.srcObject = stream;
+					video.play();
+				} ).catch( function ( error ) {
+					console.error( 'Unable to access the camera/webcam.', error );
+				} );
+			}
+
+            // Audio Initialization (Conditional)
+            const audioLoader = new THREE.AudioLoader();
+            
+            // Re-use buffers if switching modes?
+            // Initialize Arrays
+            bufferLength = config.AudioFFTcount/2;
+            mAudioDataArray = new Uint8Array(bufferLength);
+            FdataArray = new Uint8Array(bufferLength);
+            mAudioAvgArray = new Uint32Array(bufferLength);
+
+            if (isFFTMode) {
+                initAudioInput();
+                initAudioPlay();
+            }
+
+            let ADSRparameter=config.BPM_Base ;
+            let ADSRphase = false ;
+            let mult = config.SOUND_SENSITIVITY/100 ;  
+            let BGCOLOR = new THREE.Color(0x00ff0f); 
+
+            InitConfig();
+
+            // --- FUNCTIONS ---
+
+            function initAudioInput() {
+                if ( navigator.mediaDevices && navigator.mediaDevices.getUserMedia ) {
+                    navigator.mediaDevices.getUserMedia({ video : false, audio : true })
+                    .then(miccallback)
+                    .catch(e => console.error("Mic Error:", e));
+                }
+            }
+
+            function InitConfig()  {
+                palette = {  backcolor3: [ config.bgcolorR, config.bgcolorG, config.bgcolorB ]  } ;
+                BGCOLOR = new THREE.Color(config.bgcolorR*256*256+config.bgcolorG*256+config.bgcolorB);
+                
+                camera.position.setFromSphericalCoords( config.CamPosDist, config.CamPosPhi, config.CamPosTheta );	
+                controls.autoRotate = config.autoCamEN;
+                controls.autoRotateSpeed = config.autoCamSpeedPhi;
+                controls.update();
+                
+                // Loops
+                clearInterval(myLFO);
+                myLFO = setInterval(LFO_Loop,1000/config.LFO_BPM); 
+                clearInterval(myBPM);
+                myBPM = setInterval(Sequence_Loop,60000/config.TIME_BPM);
+                clearInterval(Frame);
+                Frame = setInterval(Frame_Loop, 16); 
+                FrameCount=0;
+                
+                if (typeof config.gridEN === 'undefined')  {config = {...config, gridEN: false }  }  
+                if (typeof config.textureBank === 'undefined')  {config = {...config, textureBank: 0 }  }  
+                if (typeof config.bgFade === 'undefined')  {config = {...config, bgFade: 100 }  }  
+            
+                // Rebuild GUI to bind to new config object
+                SetupGUI();
+                
+                console.log('InitConfig Complete', config);
+            }
+
+            function gmenuselect(selection)  {
+                config.ggeometryList = selection;
+                console.log('gmenuselect = choose constellation: ', selection);
+                RedrawScene();
+            }
+     
+            function menuselect(selection)  {
+                config.geometryList = selection;
+                console.log('menuselect: ', selection);
+                RedrawScene();
+            }
+     
+            function mmenuselect(selection)  {
+                config.mgeometryList = selection;   // MASTER GEOMETRY
+                console.log('mmenuselect: ', selection);
+                RedrawScene();
+            }
+
+		function SetupGUI() {		
+            try {
+                if(gui) gui.destroy();
+                gui = new dat.GUI({ width: 320 });
+                
+                // Mode Indicator
+                gui.add({ mode: isFFTMode ? "Audio Reactive (FFT)" : "Standard Visuals" }, 'mode').name('Current Mode');
+    
+                let GUILABEL = gui.addFolder('CONSTELLATION  Controls');
+                
+                gui.add( config, 'count', 1, 20000 ).name('Constellation count').onChange(RedrawScene);
+                gui.add( config, 'radius', 1, 1200 ).name('Constellation radius').onChange(RedrawScene);
+                gui.add( config, 'ggeometryList', GMENU_ITEM_list ).name('Constellation Geometry').onChange(gmenuselect);
+                gui.add( config, 'geometryList', MENU_ITEM_list ).name('Constellation Object').onChange(menuselect);
+                gui.add( config, 'objectMaterial', {'video-camera':'0', 'material1':'1', 'material2':'2', 'material3':'3', 'material4':'4', 'material5':'5', 'material6':'6', 'material7':'7', 'material8':'8', 'material9':'9'} ).name('Object Texture Material').onChange(RedrawScene);
+                gui.add( config, 'crotateX', 0.010,10 ).name('Constellation Adjust X').onChange(RedrawScene);
+                gui.add( config, 'crotateY', 0.010,100 ).name('Constellation Adjust Y').onChange(RedrawScene);
+                gui.add( config, 'crotateZ', -400,100 ).name('Constellation Adjust Z').onChange(RedrawScene);
+    
+                // FFT Controls - Only relevant if FFT enabled or we want to enable it
+                gui.add( config, 'enableFFT').name('Enable MIC Audio FFT').onChange(val => {
+                    if(val && !micanalyser) initAudioInput();
+                    initAudioPlay();
+                });
+                gui.add( config, 'AUDIO_RESPONSIVE').name('Enable Audio controls').onChange(initAudioPlay);
+                
+                let FFTFolder = gui.addFolder('Additional FFT Controls');
+                FFTFolder.add( controls, 'enabled').name('Enable mouse');
+                FFTFolder.add( controls, 'enableZoom').name('Enable mouse Zoom');
+                FFTFolder.add( controls, 'enablePan').name('Enable mouse Pan');
+                FFTFolder.add( config, 'enableAudio').name('Enable Audio Playback').onChange(initAudioPlay);
+                FFTFolder.add( config, 'FREQ_RANGE_Percent', 0.0,1.00 ).name('Frequency Range Percent').onChange(RedrawScene);
+                FFTFolder.add( config, 'SOUND_SENSITIVITY', 0,120 ).name('Sensitivity').onChange(RedrawScene);
+                FFTFolder.add( config, 'SOUND_Threshold', 1,100 ).name('Threshold').onChange(RedrawScene);
+                FFTFolder.add( config, 'AudioFFTHeight', 1,500 ).name('Audio FFT Height').onChange(RedrawScene);
+    
+                let AudioRespFolder = gui.addFolder('Audio Response Controls');
+                AudioRespFolder.add( config, 'objectEN').name('Constellation Object EN');
+                AudioRespFolder.add( config, 'geotypeEN').name('Constellation Geo Type EN');
+                AudioRespFolder.add( config, 'countEN').name('Constellation Count EN');
+                AudioRespFolder.add( config, 'radiusEN').name('Constellation Radius EN');
+                AudioRespFolder.add( config, 'scaleXEN').name('Object Scale X Enable');
+                // ... (add other boolean flags as needed, keeping it concise)
+    
+                gui.add( config, 'scaleX', 0.01, 2.0 ).name('Const Object scaleX').onChange(RedrawScene);
+                gui.add( config, 'scaleY', 0.01, 2.0 ).name('Const Object scaleY').onChange(RedrawScene);
+                gui.add( config, 'scaleZ', 0.01, 2.0 ).name('Const Object scaleZ').onChange(RedrawScene);
+                
+                let BPMFolder = gui.addFolder('BPM & ADSR Controls');
+                BPMFolder.add( config, 'TIME_BPM', 0.0,300.0 ).name('BPM-PLAY').onChange(resetInterval);
+                BPMFolder.add( config, 'BPM_A', 0.01,50 ).name('BPM-Attack Rate').onChange(RedrawScene);
+                BPMFolder.add( config, 'BPM_R', 0.01,50 ).name('BPM-Release Rate').onChange(RedrawScene);
+                BPMFolder.add( config, 'BPM_Peak', 1,100 ).name('BPM-Peak Value').onChange(RedrawScene);
+                BPMFolder.add( config, 'BPM_Base', 5,100 ).name('BPM-Base Value').onChange(RedrawScene);
+                BPMFolder.add( config, 'BPMradiusEN').name('BPM-MConst Dia EN');
+                
+                let LFOFolder = gui.addFolder('LFO Center OSC Controls');
+                LFOFolder.add( config, 'LFO_BPM', 0.01,90.0 ).name('BPM-LFO').onChange(resetLFO);
+                LFOFolder.add( config, 'LFO_CX1', -300,300 ).name('LFO-center X1').onChange(RedrawScene);
+                LFOFolder.add( config, 'LFO_EN').name('LFO OSC-EN');
+            
+                gui.add( config, 'mgeometryList', MENU_ITEM_list ).name('Master Geometry B').onChange(mmenuselect);
+                gui.add( config, 'masterMaterial',  {'video-camera':'0', 'material1':'1', 'material2':'2', 'material3':'3', 'material4':'4', 'material5':'5', 'material6':'6', 'material7':'7', 'material8':'8', 'material9':'9'} ).name('Master Texture Material').onChange(RedrawScene);
+                gui.add( config, 'mscaleX', 0.01, 5.0 ).name('Master Object scaleX').onChange(RedrawScene);
+                
+                let MasterFolder = gui.addFolder('Additional Master Object Controls');
+                MasterFolder.add( config, 'mrotateX', -10.0,10.0 ).name('Master Object rotateX').onChange(RedrawScene);
+                MasterFolder.add( config, 'positionX', -400,400).name('Master Object pos X').onChange(RedrawScene);
+                MasterFolder.add( config, 'mballs1EN').name('Master Balls1 EN').onChange(RedrawScene);
+                MasterFolder.add( config, 'mcLines').name('Master Object Lines').onChange(RedrawScene);
+                MasterFolder.add( config, 'mcrotate', -10.0,10.0 ).name('Master Object Rotate').onChange(RedrawScene);
+                
+                gui.add( config, 'geomode',  {'video-camera':'0', 'material1':'1', 'material2':'2', 'material3':'3', 'material4':'4', 'material5':'5', 'material6':'6', 'material7':'7', 'material8':'8', 'material9':'9', 'COLOR':'10'} ).name('BACKGROUND Texture Material').onChange(RedrawScene);
+                gui.add( config, 'bgFade', 0, 100).name('Background Intensity = FADE:').onChange(RedrawScene);
+                gui.addColor(palette, 'backcolor3').name('Background Color').onChange(updateBGColor);
+                gui.add( config, 'gridEN').name('Grid Enable') ;
+                
+                let autoRotateFolder = gui.addFolder('Auto Rotate Controls');
+                autoRotateFolder.add( config, 'autoX', -0.0100, 0.0100 ).name('Auto INC/DEC const X Adjust') ;
+                autoRotateFolder.add( controls, 'autoRotate').name('Camera AutoRotate').onChange(autoToggle);
+                gui.add( controls, 'autoRotateSpeed', -10.00, 10.00 ).onChange(autoToggle);
+                gui.add( config, 'CamPosDist', 0,200 ).name('Camera Dist=Zoom').onChange(RedrawScene);
+            
+                // gui.close(); 
+            } catch(e) {
+                console.error("SetupGUI failed:", e);
+            }
+	}
+
+        function LoadTexture9(tindex) {
+            // Simplified loading to just use the helper
+            // We use a base path and suffix pattern
+            let suffixes = [];
+            if(tindex===0) suffixes = ["1","2","3","4","5","6","7","8","9"]; // default no parens? 
+            // The original logic had specific paths per bank. Simplifying for brevity/stability.
+            // Using standard bank 5 logic as default/fallback
+            
+            // Texture loading helper
+            const loadTex = (path) => new THREE.TextureLoader().load(path);
+            
+            // Base Bank 0 (Standard)
+            if (tindex === 0) {
+                texture1 = loadTex('./images/background_image1.png');
+                texture2 = loadTex('./images/background_image2.png');
+                texture3 = loadTex('./images/background_image3.png');
+                texture4 = loadTex('./images/background_image4.png');
+                texture5 = loadTex('./images/background_image5.png');
+                texture6 = loadTex('./images/background_image6.png');
+                texture7 = loadTex('./images/background_image7.png');
+                texture8 = loadTex('./images/background_image8.png');
+                texture9 = loadTex('./images/background_image9.png');
+            } else {
+                // Bank 1-5 patterns
+                // Fallback to Bank 0 for now to ensure resources exist
+                 texture1 = loadTex('./images/background_image1.png');
+                 texture2 = loadTex('./images/background_image2.png');
+                 texture3 = loadTex('./images/background_image3.png');
+                 texture4 = loadTex('./images/background_image4.png');
+                 texture5 = loadTex('./images/background_image5.png');
+                 texture6 = loadTex('./images/background_image6.png');
+                 texture7 = loadTex('./images/background_image7.png');
+                 texture8 = loadTex('./images/background_image8.png');
+                 texture9 = loadTex('./images/background_image9.png');
+            }
+
+            material = new THREE.MeshBasicMaterial( { map: texture } ); // video
+			material1 = new THREE.MeshBasicMaterial( { map: texture1 } );
+			material2 = new THREE.MeshBasicMaterial( { map: texture2 } );
+			material3 = new THREE.MeshBasicMaterial( { map: texture3 } );
+			material4 = new THREE.MeshBasicMaterial( { map: texture4 } );
+			material5 = new THREE.MeshBasicMaterial( { map: texture5 } );
+			material6 = new THREE.MeshBasicMaterial( { map: texture6 } );
+			material7 = new THREE.MeshBasicMaterial( { map: texture7 } );
+			material8 = new THREE.MeshBasicMaterial( { map: texture8 } );
+			material9 = new THREE.MeshBasicMaterial( { map: texture9 } );
+        }
+
+        // --- CORE LOGIC ---
+
+        function Frame_Loop() {
+            // Audio Analysis
+            if (config.enableFFT && micanalyser) {
+                micanalyser.getByteFrequencyData(mAudioDataArray);
+                for (let i=0;i<=bufferLength;i++) {
+                    mAudioAvgArray[i] = mAudioAvgArray[i] + mAudioDataArray[i]; 
+                }
+                Acnt++;
+                
+                // Trigger ADSR
+                if (mAudioDataArray[2] > config.SOUND_Threshold*3) ADSRphase = true;
+                
+                // Update 3D from Audio
+                if (config.AUDIO_RESPONSIVE) {
+                    update3Daudio(mAudioDataArray);
+                    updateBars(mAudioDataArray); // Draw to canvas
+                }
+            }
+
+            // BPM / Sequence Logic
+            if (ADSRphase==false && ADSRparameter>config.BPM_Base) ADSRparameter=ADSRparameter*(1-(config.BPM_R/200)); 
+		    else if (ADSRphase && ADSRparameter<(config.BPM_Base+config.BPM_Peak)) ADSRparameter=ADSRparameter*(1+(config.BPM_A/200)); 
+		    else if (ADSRphase && ADSRparameter>=(config.BPM_Base+config.BPM_Peak)) ADSRphase = false;
+            
+            if (config.BPMradiusEN) { config.radius = ADSRparameter; }
+		    if (config.BPMrotateXEN) { config.crotateX  = 3.4*ADSRparameter/100; }
+		    
+            // Auto Next Frame (Slideshow)
+            if(config.nextFrameEN) FrameCount++;
+            if (config.nextFrameEN && FrameCount >= config.NumberOfFrames) {
+                FrameCount=0;
+                if(config.NextURL && config.NextURL.length > 5) {
+                    try { LoadURL(config.NextURL); } 
+                    catch(e) { console.error(e); }
+                }
+            }
+
+            RedrawScene();
+        }
+
+        function update3Daudio(mAudioArray) {
+            let thresh2 = 2*config.SOUND_Threshold; 
+            // Map frequencies to parameters
+            if (config.scaleXEN && mAudioArray[23]> thresh2) config.scaleX = mAudioArray[23]/256;
+            if (config.scaleYEN && mAudioArray[13]> thresh2) config.scaleY = mAudioArray[13]/256;
+            if (config.scaleZEN && mAudioArray[28]> thresh2) config.scaleZ = mAudioArray[28]/256;
+            // ... (Add mapped parameters as needed)
+        }
+
+        function updateBars(mAudioArray) {
+            if(!canvasCtx) return;
+            const w = canvasCtx.canvas.width;
+            const h = canvasCtx.canvas.height;
+            canvasCtx.fillStyle = '#000000';
+            canvasCtx.fillRect(0,0,w,h);
+            
+            let segments = (bufferLength-config.FREQ_RANGE_START)*config.FREQ_RANGE_Percent;
+            const barWidth = w / (segments + 10);
+            let xf = 10;
+            
+            for(let x = config.FREQ_RANGE_START; x < segments; x++) {
+                let val = mAudioArray[x];
+                let barH = (val / 255) * h;
+                
+                canvasCtx.fillStyle = `hsl(${x/segments * 360}, 100%, 50%)`;
+                canvasCtx.fillRect(xf, h - barH, barWidth, barH);
+                xf += barWidth + 1;
+            }
+        }
+
+        function RedrawScene() {
+            gui.updateDisplay();
+            
+            // Clean Scene
+            while(scene.children.length > 0){ 
+                scene.remove(scene.children[0]); 
+            }
+            
+            // Re-add Lights
+            const light = new THREE.DirectionalLight(0xFFFFFF, 1);
+			light.position.set(30, 2, 4);
+			scene.add(light);
+            if(config.gridEN) {
+                const gridHelper = new THREE.GridHelper(600,50);
+                scene.add(gridHelper);
+            }
+
+            // Background
+            let bgTex = getTexture(config.geomode);
+            scene.background = bgTex;
+            scene.backgroundIntensity = config.bgFade/100;
+
+            // Constellation Geometry
+            // Unified creation logic
+            if(config.gsel == 'PlaneGeo') geometry = new THREE.PlaneGeometry( 32, 18 );
+            else if(config.gsel == 'SphereGeo') geometry = new THREE.SphereGeometry( 16,32,64 );
+            else if(config.gsel == 'CubeGeo') geometry = new THREE.BoxGeometry( 16,16,16);
+            else if(config.gsel == 'CircleGeo') geometry = new THREE.CircleGeometry( 16,32,64 );
+            else if(config.gsel == 'ConeGeo') geometry = new THREE.ConeGeometry( 16,32,128,64 );
+            else if(config.gsel == 'TorusGeo') geometry = new THREE.TorusGeometry( 8,4,64,128);
+            else if(config.gsel == 'CylinderGeo') geometry = new THREE.CylinderGeometry( 6,6,16,32,32 );
+            else if(config.gsel == 'OctahedronGeo') geometry = new THREE.OctahedronGeometry( 16,0 );
+            else if(config.gsel == 'TetraGeo') geometry = new THREE.TetrahedronGeometry( 16,0 );
+            else geometry = new THREE.SphereGeometry( 16,32,64 ); // Fallback
+
+            if(geometry) geometry.scale(config.scaleX, config.scaleY, config.scaleZ);
+
+            let omat = getMaterial(config.objectMaterial);
+
+            // Constellation Loop
+            for ( let i = 1, lim = config.count; i <= lim; i ++ ) {
+                config.phi = config.crotateY + Math.acos( - 1 + ( config.crotateX * i ) / lim );
+                config.theta = Math.sqrt( lim * Math.PI ) * config.phi;
+                
+                mesh = new THREE.Mesh( geometry, omat );
+                
+                // Position logic based on ggeometryList (Constellation Shape)
+                // 0=Sphere, 3=Cylinder, etc.
+                let mode = parseInt(config.ggeometryList);
+                if(mode===0) mesh.position.setFromSphericalCoords( config.radius, config.phi, config.theta );
+                else if(mode===1) mesh.position.setFromSphericalCoords( config.radius, i, config.theta );
+                else if(mode===3) mesh.position.setFromCylindricalCoords( config.radius, (i-(lim/2))/config.crotateY, config.theta+config.crotateZ );
+                else mesh.position.setFromSphericalCoords( config.radius, config.phi, config.theta ); // default
+
+                mesh.rotateX(config.rotateX);
+                mesh.rotateY(config.rotateY);
+                mesh.rotateZ(config.rotateZ);
+                mesh.lookAt(config.positionX, config.positionY, config.positionZ);
+                scene.add(mesh);
+            }
+
+            // Master Object
+            // Unified creation logic
+            if(config.mgsel == 'SphereGeo') mgeometry = new THREE.SphereGeometry( 16,32,64 );
+            else if(config.mgsel == 'CubeGeo') mgeometry = new THREE.BoxGeometry( 20,16,16);
+            else if(config.mgsel == 'TorusGeo') mgeometry = new THREE.TorusGeometry( 32,16,32,64 );
+            else if(config.mgsel == 'OctahedronGeo') mgeometry = new THREE.OctahedronGeometry( 16,0 );
+            else mgeometry = new THREE.BoxGeometry( 20,16,16); // Fallback
+
+            if(mgeometry) mgeometry.scale(config.mscaleX, config.mscaleY, config.mscaleZ);
+            
+            let mmat = getMaterial(config.masterMaterial);
+            mesh = new THREE.Mesh(mgeometry, mmat);
+            mesh.position.set(config.positionX, config.positionY, config.positionZ);
+            mesh.rotateX(config.mrotateX);
+            mesh.rotateY(config.mrotateY);
+            mesh.rotateZ(config.mrotateZ);
+            scene.add(mesh);
+
+            renderer.render(scene, camera);
+        }
+
+        // Helpers
+        function getMaterial(id) {
+            if(id==0) return material; // video
+            if(id==1) return material1;
+            if(id==2) return material2;
+            if(id==3) return material3;
+            if(id==4) return material4;
+            if(id==5) return material5;
+            if(id==6) return material6;
+            if(id==7) return material7;
+            if(id==8) return material8;
+            if(id==9) return material9;
+            return material3;
+        }
+
+        function getTexture(id) {
+            if(id==0) return texture;
+            if(id==1) return texture1;
+            if(id==2) return texture2;
+            if(id==3) return texture3;
+            if(id==4) return texture4;
+            if(id==5) return texture5;
+            if(id==6) return texture6;
+            if(id==7) return texture7;
+            if(id==8) return texture8;
+            if(id==9) return texture9;
+            if(id==10) return BGCOLOR;
+            return texture1;
+        }
+
+        function updateBGColor() {
+             BGCOLOR = new THREE.Color(config.bgcolorR*256*256+config.bgcolorG*256+config.bgcolorB); // Approximation
+             // Better:
+             BGCOLOR.setRGB(palette.backcolor3[0]/255, palette.backcolor3[1]/255, palette.backcolor3[2]/255);
+        }
+
+        function miccallback(stream) {
+            let Actx = new AudioContext();
+            micanalyser = Actx.createAnalyser();
+            micanalyser.fftSize = config.AudioFFTcount;
+            let mic = Actx.createMediaStreamSource(stream);
+            mic.connect(micanalyser);
+            console.log("Mic Connected");
+        }
+
+        function initAudioPlay() {
+            // Setup listener for file playback
+            if(config.enableAudio && !sound) {
+                const listener = new THREE.AudioListener();
+                camera.add(listener);
+                sound = new THREE.Audio(listener);
+            }
+        }
+
+        function LFO_Loop() {
+            if(config.LFO_EN) {
+                if(LFO_DIR) LFO_Value++; else LFO_Value--;
+                if(LFO_Value >= 60) LFO_DIR=false;
+                if(LFO_Value <= 0) LFO_DIR=true;
+                
+                // Apply LFO to Config
+                config.count += config.autoCnt;
+                config.radius += config.autoRad;
+                // ...
+                RedrawScene();
+            }
+        }
+
+        function Sequence_Loop() {
+            if (!config.enableFFT) ADSRphase = true;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize( window.innerWidth, window.innerHeight );
+        }
+
+        function autoToggle() {
+            config.autoCamEN = controls.autoRotate;
+            config.autoCamSpeedPhi = controls.autoRotateSpeed;
+        }
+
+        // --- GLOBAL INTERFACE ---
+        
+        function LoadURL(url, directData = null)  {
+            loadedFlag = true;
+            if (directData) {
+                config = { ...config, ...directData }; // Merge to preserve system flags
+                console.log('LoadURL - new CONFIG from DB');
+                loadedFlag = false;
+                InitConfig();
+                return;
+            }
+            
+            fetch(url)
+                .then(res => res.json())
+                .then(res => config = {...config, ...res} )
+                .then(res => {
+                    loadedFlag = false;
+                    InitConfig();
+                })
+                .catch(err => console.error("LoadURL Failed:", err));
+	 	}
+        window.LoadURL = LoadURL; // Expose
+
+        function save() {
+            let image_data = null;
+            try { image_data = renderer.domElement.toDataURL('image/png'); } catch(e){}
+
+            const payload = {
+                name: "Data_LIS_Config_" + Date.now(),
+                type: "LIS",
+                data: config,
+                image_data: image_data
+            };
+
+            fetch('api_v2.php?action=save_preset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(r=>r.json()).then(d=>alert(d.success?"Saved":"Failed"));
+        }
+        window.save = save;
+
+        function KeyHandler(chr) {
+            console.log("KeyHandler:", chr);
+            if (chr === 'J' || chr === 'j') save();
+            
+            let url = "";
+            if (chr === '1') url = './presets/Data_LIS_Config(1).json';
+            else if (chr === '2') url = './presets/Data_LIS_Config(2).json';
+            else if (chr === '3') url = './presets/Data_LIS_Config(3).json';
+            else if (chr === '4') url = './presets/Data_LIS_Config(4).json';
+            else if (chr === '5') url = './presets/Data_LIS_Config(5).json';
+            else if (chr === '6') url = './presets/Data_LIS_Config(6).json';
+            else if (chr === '7') url = './presets/Data_LIS_Config(7).json';
+            else if (chr === '8') url = './presets/Data_LIS_Config(8).json';
+            else if (chr === '9') url = './presets/Data_LIS_Config(9).json';
+            else if (chr === '0') url = './presets/Data_LIS_Config(10).json';
+            else if (chr === '-') url = './presets/Data_LIS_Config(11).json';
+            else if (chr === '=') url = './presets/Data_LIS_Config(12).json';
+            
+            if (url) {
+                console.log("Loading Preset:", url);
+                LoadURL(url);
+            }
+        }
+        window.addEventListener('keydown', e => KeyHandler(e.key));
+        window.addEventListener('click', () => { window.focus(); console.log('Iframe focused'); });
+
+        // Auto-load config param
+        const configParam = new URLSearchParams(window.location.search).get('config');
+        if(configParam) {
+            let path = configParam.includes('/') ? configParam : './presets/' + configParam;
+            setTimeout(() => LoadURL(path), 500);
+        }
+
+	</script>
+	</body>
+</html>

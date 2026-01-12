@@ -1,0 +1,11 @@
+# Enable CORS for all files
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+</IfModule>
+
+# Optional: Enable URL Rewriting if you want clean URLs later
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+</IfModule>

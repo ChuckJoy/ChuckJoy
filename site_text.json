@@ -1,0 +1,13 @@
+{
+  "header": {
+    "title": "Chuck Joy's 3D Web and Graphics Playground",
+    "subtitle": " 3D Imagery - Fluid Art - Web Experiments - Interactive Art - Play Songs",
+    "style": {
+      "color": "#4fc3f7",
+      "fontFamily": "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+      "textShadow": "2px 2px 4px #000000",
+      "fontSizeTitle": "2.5em",
+      "fontSizeSubtitle": "1.2em"
+    }
+  }
+}

@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<title>Video Therimen  - using DiffCamEngine </title>
+  
+		<style>
+		 
+			body {
+				margin: 20px;
+				font: 1.5em/1.2 sans-serif;
+				text-align: center;
+			}
+			
+			figure {
+				display: inline-block;
+				margin: 10px;
+				vertical-align: top;
+            
+			}
+			
+			figcaption {
+				text-align: left;
+				font-weight: bold;
+			}
+			
+			metric {
+				display: inline-block;
+				margin: 10px;
+				vertical-align: top;
+			}
+			
+			metriccaption {
+				text-align: left;
+				font-weight: bold;
+			}
+			video  {
+			   width: 640px;
+				height: 360px;
+				background-color: #999;
+			}
+            canvas {
+				width: 640px;
+				height: 360px;
+				background-color: #999;
+			}
+			
+			canvas {
+				image-rendering: pixelated;
+			}
+            .button1 {background-color: #f01d09;} /* Blue */
+            .button2 {background-color: #f01d09;} /* Blue */
+            .button3 {background-color: #f01d09;} /* Blue */
+            .button4 {background-color: #0a0dd1;} /* Blue */
+            .button5 {background-color: #2200ff;} /* Blue */
+            .button6 {background-color: #921717;} /* Blue */
+            .button7 {background-color: #ce403b;} /* Blue */
+            .button8 {background-color: #f01d09;} /* Red */
+            
+            .button {
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            }
+            .div {
+  margin-bottom: 15px;
+  padding: 4px 12px;
+}
+
+.danger {
+  background-color: #ffdddd;
+  border-left: 6px solid #f44336;
+}
+
+.success {
+  background-color: #ddffdd;
+  border-left: 6px solid #04AA6D;
+}
+
+.info {
+  background-color: #e7f3fe;
+  border-left: 6px solid #2196F3;
+}
+
+			</style>
+			
+	</head>
+	<body>
+		<figure>
+			<video id="video"></video>
+			<figcaption>Live Video</figcaption>
+		</figure><br>
+
+		<figure>
+			<canvas id="motion"></canvas>
+			<figcaption>
+				MIDI Out:   <span id="metric0"> ?," "</span><span id="metricm2"> ?</span><span id="metricm3">?</span><br>
+				
+			</figcaption>
+		</figure>
+        <div> 
+        <!--    Motion2: <span id="metric1">?</span><br> 
+            Motion3: <span id="metric2">?</span><br> 
+            Motion4: <span id="metric3">?</span> <br>
+            Motion5: <span id="metric4">?</span> <br> -->
+            <button onclick="playKey()"; class="button4" >Play MIDI notes in Key</button>
+          
+        </div>
+
+
+        <div class="info">
+            <p>Motion Video Therimen - plays sounds from video camera motions </p>
+          </div>
+          
+ 
+
+       <script type="importmap">
+			{
+				"imports": {
+					"three": "./build/three.module.js",
+					"three/addons/": "./jsm/"
+				}
+			}
+	</script>
+    	
+		<script src="https://webrtc.github.io/adapter/adapter-1.0.7.js"></script>
+		<script src="./diff-cam-engine.js"></script>
+	
+		<script type="text/javascript" src="./dat.gui.min.js"></script>  
+     	
+<script type="module" >
+import * as THREE from 'three';
+		
+//***********************************************************************************************************
+//***********************************************************************************************************
+//***********************************************************************************************************
+var video = document.getElementById('video');
+var canvas = document.getElementById('motion');
+var metric0 = document.getElementById('metric0');
+var metricm2 = document.getElementById('metricm2');
+var metricm3 = document.getElementById('metricm3');
+////var metric1 = document.getElementById('metric1');
+//var metric2 = document.getElementById('metric2');
+//var metric3 = document.getElementById('metric3');
+//var metric4 = document.getElementById('metric4');
+let FrameCounter = 0;
+//oscillator.start( 0 );
+// testosc = Actx2.createOscillator();
+// testosc.connect(Actx2.destination);
+// testosc.start(0);
+
+const listener = new THREE.AudioListener();
+const audioContext = listener.context;
+
+// Resume AudioContext on first user interaction
+document.body.addEventListener('click', function() {
+    if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+            console.log('AudioContext resumed!');
+        });
+    }
+}, { once: true });
+
+// Oscillator Setup with GainNode for gating
+const testosc = audioContext.createOscillator();
+const filterNode = audioContext.createBiquadFilter();
+const gainNode = audioContext.createGain();
+
+testosc.type = 'sine';
+testosc.frequency.value = 144;
+
+filterNode.type = 'lowpass';
+filterNode.frequency.value = 2000;
+filterNode.Q.value = 1;
+
+// Connect: Osc -> Filter -> Gain -> Destination
+testosc.connect(filterNode);
+filterNode.connect(gainNode);
+gainNode.connect(audioContext.destination);
+
+// Start oscillator immediately but silently
+gainNode.gain.value = 0; 
+testosc.start(0);
+
+// Placeholder sound3 for compatibility if referenced elsewhere
+const sound3 = { 
+    context: audioContext, 
+    setVolume: (v) => { /* Handled by gainNode now */ } 
+};
+				 
+let envelope = {
+    // Amp ADSR
+    attack: 0.1,
+    decay: 0.2,
+    sustain: 0.5,
+    release: 0.8,
+    
+    // Filter Base
+    filterFreq: 2000,
+    filterQ: 1,
+
+    // Filter ADSR
+    filterSweepEnabled: false,
+    fAttack: 0.1,
+    fDecay: 0.2,
+    fSustain: 0.5,
+    fRelease: 0.8,
+    fEnvAmount: 2000, // Hz to add to base freq at peak
+
+    // Pitch Logic
+    randomPitchEnabled: false,
+    chromaticEnabled: false,
+    randomPitchRange: 100, // Hz range or Semitone range depending on mode
+
+    // Trigger Logic
+    autoTrigger: false,
+    autoThreshold: 20,
+    trigger: function() { triggerGateOn(); setTimeout(triggerGateOff, 200); } 
+};
+
+let smoothedBox = { xmin: 0, ymin: 0, xmax: 0, ymax: 0 };
+const lerpFactor = 0.3; 
+let isGateOpen = false;
+
+function triggerGateOn() {
+    const now = audioContext.currentTime;
+
+    // --- Pitch Logic ---
+    if (envelope.randomPitchEnabled) {
+        let newFreq = config.TestOscFreq;
+
+        if (envelope.chromaticEnabled) {
+            // Range is interpreted as +/- Semitones
+            // Max semitones roughly mapped from the range slider (e.g., 0-100 -> 0-24 semitones)
+            let rangeSemi = Math.floor(envelope.randomPitchRange / 4); 
+            if (rangeSemi < 1) rangeSemi = 1;
+            
+            let deltaSemi = Math.floor(Math.random() * (rangeSemi * 2 + 1)) - rangeSemi;
+            // f = f0 * 2^(n/12)
+            newFreq = newFreq * Math.pow(2, deltaSemi / 12);
+        } else {
+            // Range is +/- Hz
+            let deltaHz = (Math.random() * envelope.randomPitchRange * 2) - envelope.randomPitchRange;
+            newFreq += deltaHz;
+        }
+        
+        // Clamp freq to reasonable limits
+        if (newFreq < 20) newFreq = 20;
+        if (newFreq > 10000) newFreq = 10000;
+
+        config.TestOscFreq = newFreq;
+        testosc.frequency.setValueAtTime(config.TestOscFreq, now);
+        
+        // Update GUI display for freq if visible
+        // Note: calling gui.updateDisplay() frequently might be heavy, but ok here
+        // gui.updateDisplay(); 
+    }
+
+    // --- Amp Envelope ---
+    gainNode.gain.cancelScheduledValues(now);
+    gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+    gainNode.gain.linearRampToValueAtTime(1.0, now + envelope.attack);
+    gainNode.gain.linearRampToValueAtTime(envelope.sustain, now + envelope.attack + envelope.decay);
+
+    // --- Filter Envelope ---
+    if (envelope.filterSweepEnabled) {
+        let baseFreq = envelope.filterFreq;
+        let peakFreq = baseFreq + envelope.fEnvAmount;
+        let sustainFreq = baseFreq + (envelope.fEnvAmount * envelope.fSustain);
+
+        filterNode.frequency.cancelScheduledValues(now);
+        filterNode.frequency.setValueAtTime(filterNode.frequency.value, now);
+        // Attack -> Peak
+        filterNode.frequency.linearRampToValueAtTime(peakFreq, now + envelope.fAttack);
+        // Decay -> Sustain
+        filterNode.frequency.linearRampToValueAtTime(sustainFreq, now + envelope.fAttack + envelope.fDecay);
+    }
+
+    isGateOpen = true;
+}
+
+function triggerGateOff() {
+    const now = audioContext.currentTime;
+    
+    // --- Amp Release ---
+    gainNode.gain.cancelScheduledValues(now);
+    gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+    gainNode.gain.linearRampToValueAtTime(0, now + envelope.release);
+
+    // --- Filter Release ---
+    if (envelope.filterSweepEnabled) {
+        filterNode.frequency.cancelScheduledValues(now);
+        filterNode.frequency.setValueAtTime(filterNode.frequency.value, now);
+        filterNode.frequency.linearRampToValueAtTime(envelope.filterFreq, now + envelope.fRelease);
+    }
+
+    isGateOpen = false;
+}
+				 
+
+
+// 10 parms, 12 trig call enables plus 12 zone call enables  
+var threshold = {
+	Vthresh:40, 	// vertical
+	Hthres:80,		// horizontal
+	Xloleft:40,
+	Xhiright:215,
+	XXsmall:25,
+	XXlarge:120,
+	Ylotop:35,
+	Yhibot:110,
+	YYsmall:25,
+	YYlarge:75,
+	still: 25,  // 2 sec
+	mkey: 0,  // key = c
+	trig_smx_EN: true,
+	trig_smy_EN: true,
+	trig_smxy_EN: true,
+	trig_vert_EN: true,
+	trig_hor_EN: true,
+	trig_square_EN: true,
+	trig_lo_EN: true,
+	trig_hi_EN: true,
+	trig_left_EN: true,
+	trig_right_EN: true,
+	trig_centerX_EN: true,
+	trig_tallY_EN: true,
+	trig_wideX_EN: true,
+	trig_still_EN: true,
+	trig_still10_EN: true,
+
+	zone1_EN: true,
+	zone2_EN: true,
+	zone3_EN: true,
+	zone4_EN: true,
+	zone5_EN: true,
+	zone6_EN: true,
+	zone7_EN: true,
+	zone8_EN: true,
+	zone9_EN: true,
+	zone10_EN: true,
+	zone11_EN: true,
+	zone12_EN: true
+
+	};
+
+let wid = 256;
+let hei = 144;
+let i;
+let payload;
+//***********************************************************************************************************
+setInterval(UpdateOsc,10);
+
+function initSuccess() {
+	DiffCamEngine.start();
+}
+
+function initError() {
+	alert('Something went wrong.');
+}
+
+
+function capture(pload) {
+	payload=pload;
+	FrameCounter++;
+	if(threshold.trig_still_EN&&FrameCounter>threshold.still)  {trig_still(); FrameCounter = 0; }
+	if(threshold.trig_still10_EN&&FrameCounter==10) {trig_still10();}
+	if(threshold.trig_still20_EN&&FrameCounter==20) {trig_still10();}
+
+/*	metric1.textContent = '0';
+	metric2.textContent = '0';
+	metric3.textContent = '0';
+	metric4.textContent = '0';
+	//console.log('payload:',pload );
+*/
+	if(pload.hasMotion&&pload.motionPixels) {
+		metric2.textContent = pload.motionPixels;//&pload.motionBox;
+		console.log('Motion Pixels:',pload.motionPixels );	
+		}
+	//console.log('capture',pload.score,pload.hasMotion,pload.motionBox,pload.motionPixels );
+	
+	if(pload.hasMotion&&pload.motionBox) {
+		motionParse( ) ;
+		}
+	}  // !capture
+
+
+function motionParse( ) {
+    // Smoothing Logic
+    let rawX1=(payload.motionBox.x.min) ;
+	let rawY1=(payload.motionBox.y.min) ;
+	let rawX2=(payload.motionBox.x.max) ;
+	let rawY2=(payload.motionBox.y.max) ;
+    
+    smoothedBox.xmin += (rawX1 - smoothedBox.xmin) * lerpFactor;
+    smoothedBox.ymin += (rawY1 - smoothedBox.ymin) * lerpFactor;
+    smoothedBox.xmax += (rawX2 - smoothedBox.xmax) * lerpFactor;
+    smoothedBox.ymax += (rawY2 - smoothedBox.ymax) * lerpFactor;
+
+	let x1=smoothedBox.xmin ;
+	let y1=smoothedBox.ymin ;
+	let x2=smoothedBox.xmax ;
+	let y2=smoothedBox.ymax ;
+	let xx = x2-x1;
+	let yy = y2-y1;	
+	// console.log('motion:',payload.score,x1,y1,x2,y2,"DIF:",xx,yy,FrameCounter);
+    
+    // Auto-Trigger Logic
+    if (envelope.autoTrigger) {
+        if (payload.score > envelope.autoThreshold) {
+            if (!isGateOpen) triggerGateOn();
+        } else {
+            if (isGateOpen) triggerGateOff();
+        }
+    }
+
+	// threshold.Hthres   threshold.Vthres
+    
+	config.TestOscFreqTarget = xx*(threshold.mkey+1)+x1+x2;
+	config.TestOscVolTarget = yy;
+    config.TestOscFreq = xx*(threshold.mkey+1)+x1+x2;
+	config.TestOscVol = yy;
+   
+    gui.updateDisplay();
+    menuTestFreq();
+
+
+    if(xx/yy >= 2 && threshold.trig_hor_EN) {FrameCounter = 0; Trig_Motion_Out(0,'trig_hor');}    // :80, horizontal
+	else if( yy/xx >= 2 && threshold.trig_vert_EN) {FrameCounter = 0;  Trig_Motion_Out(1,'trig_vert');}	// 40,  vertical
+	else if( threshold.trig_square_EN)  {FrameCounter = 0;  Trig_Motion_Out(2,'trig_square'); }	// 70,  square
+	
+	if( x1 < threshold.Xloleft&& threshold.trig_left_EN)    {FrameCounter = 0; Trig_Motion_Out(3,'trig_left');  }		// :40,
+	else if( x2 > threshold.Xhiright&& threshold.trig_right_EN)   {FrameCounter = 0; Trig_Motion_Out(4,'trig_right');}  // :215,
+	else if( threshold.trig_centerX_EN) {FrameCounter = 0; Trig_Motion_Out(5,'trig_centerX');} 
+	
+    if( xx < threshold.XXsmall&& threshold.trig_smx_EN)    {FrameCounter = 0; Trig_Motion_Out(6,'trig small x');   } // :25,
+	else if( xx > threshold.XXlarge&& threshold.trig_wideX_EN) {FrameCounter = 0; Trig_Motion_Out(7,'trig large x'); } // :120,
+	else if( threshold.trig_smx_EN||threshold.trig_wideX_EN)   {FrameCounter = 0; Trig_Motion_Out(8,'trig_medx');}  // :25,25
+	//&& threshold.trig_smxy_EN
+    if( y1 < threshold.Ylotop&& threshold.trig_lo_EN)      {FrameCounter = 0; Trig_Motion_Out(9,'trig lo y');  }  // :35,
+	else if( y2 > threshold.Yhibot&& threshold.trig_hi_EN)      {FrameCounter = 0; Trig_Motion_Out(10,'trig hi y');	} // :110,
+	else if( threshold.trig_hi_EN)      {FrameCounter = 0; Trig_Motion_Out(11,'trig med y');	} // :110,
+	
+    if( yy < threshold.YYsmall&& threshold.trig_smy_EN)    {FrameCounter = 0; Trig_Motion_Out(12,'trig short y'); }  // :25,
+	else if( yy > threshold.YYlarge&& threshold.trig_tallY_EN)  {FrameCounter = 0; Trig_Motion_Out(13,'trig tall y'); }  // :75,
+	else if( threshold.trig_tallY_EN)  {FrameCounter = 0; Trig_Motion_Out(14,'trig med y'); }  // :75,
+	
+     x1=xx/2;
+     y1=yy/2;
+	if((x1<1*256/4) && (y1<1*144/3) && threshold.zone1_EN)      { Trig_zone_Out(0);  } // Z11
+	else if((x1<2*256/4) && (y1<1*144/3) && threshold.zone2_EN) { Trig_zone_Out(1); } // Z21
+	else if((x1<3*256/4) && (y1<1*144/3) && threshold.zone3_EN) { Trig_zone_Out(2); } // Z31
+	else if((x1<4*256/4) && (y1<1*144/3) && threshold.zone4_EN) { Trig_zone_Out(3); } // Z41
+
+	else if((x1<1*256/4) && (y1<2*144/3) && threshold.zone5_EN) { Trig_zone_Out(4);} // Z12
+	else if((x1<2*256/4) && (y1<2*144/3) && threshold.zone6_EN) { Trig_zone_Out(5); } // Z22
+	else if((x1<3*256/4) && (y1<2*144/3) && threshold.zone7_EN) { Trig_zone_Out(6); } // Z32
+	else if((x1<4*256/4) && (y1<2*144/3) && threshold.zone8_EN) { Trig_zone_Out(7); } // Z42
+	
+	else if((x1<1*256/4) && (y1<3*144/3) && threshold.zone9_EN) { Trig_zone_Out(8); } // Z13
+	else if((x1<2*256/4) && (y1<3*144/3) && threshold.zonea_EN) { Trig_zone_Out(9); } // Z23
+	else if((x1<3*256/4) && (y1<3*144/3) && threshold.zoneb_EN) { Trig_zone_Out(10); } // Z33
+	else if((x1<4*256/4) && (y1<3*144/3) && threshold.zonec_EN) { Trig_zone_Out(11); } // Z43
+			
+	}  // !motionPARSE
+
+ 
+function trig_still()  {
+	console.log('trig still', FrameCounter);
+    midiANO() ;   // all notes off
+     
+    config.TestOscVolTarget = 0;
+    gui.updateDisplay();
+    menuTestFreq();
+   // config.TestOscFreqTarget = 432;
+	
+  	FrameCounter = 0;
+}
+
+function trig_still10()  {
+	console.log('trig still10',FrameCounter);
+    midiANO() ;    // all notes off
+
+    config.TestOscVolTarget = 0;
+    gui.updateDisplay();
+    menuTestFreq();
+    //config.TestOscFreqTarget = 432;
+	
+	
+    }
+ 
+	  
+function midiANO(){        
+    for(i=0;i<16;i++)	{
+	midiSend(0xB0+i,123,0,0);  //ALL Notes off - every channel.  7F=127  7b=123 128-16= 112-127==70-7F   FE=active sense code
+	}
+  }
+
+/////if(typeof config.textureBank != 'undefined') 
+function Trig_Motion_Out(index,name) {
+  console.log('trig Motion:', index,name);
+			
+  if(typeof payload.motionBox != 'undefined') {	
+	let x1=(payload.motionBox.x.min) ;
+	let y1=(payload.motionBox.y.min) ;
+	let x2=(payload.motionBox.x.max) ;
+	let y2=(payload.motionBox.y.max) ;
+	let xx = x2-x1;
+	let yy = y2-y1;	
+	let nn = y2/2-50;
+	if (nn>127) nn = 61; 
+	let dur = (x1+x2+y1+y2);
+	let dur2 = payload.score*4 ;
+    let note = threshold.mkey + index*2;
+	//metric1.textContent = dur;
+	//metric2.textContent = dur2;
+	
+	if(index==0 || index==1 || index==2 )  {  //hor vert square
+		midiSend(NOTE_ON+1, note+xx, yy,dur2);
+	}
+	if(index==3 || index==4 || index==5 )  {   // left right center x
+		midiSend(NOTE_ON+2, note+yy,nn, dur);
+	}
+	if(index==6 || index==7 || index==8 )  {   // small med large x
+		midiSend(NOTE_ON+3, note+xx,nn, dur);
+	}
+    if(index==9 || index==10 || index==11 )  {   // lo hi  med y
+		midiSend(NOTE_ON+4, note+yy,nn, dur);
+	}
+    if(index==12 || index==13 || index==14 )  {   //short tAll med y
+		midiSend(NOTE_ON+index-8, note+xx,nn, dur);
+	}
+	 
+  }
+}	 // !trig motion out
+ 
+function Trig_zone_Out(index) {
+    console.log('trig zone:', index);
+	if(typeof payload.motionBox != 'undefined') {	
+	let x1=(payload.motionBox.x.min) ;
+	let y1=(payload.motionBox.y.min) ;
+	let x2=(payload.motionBox.x.max) ;
+	let y2=(payload.motionBox.y.max) ;
+	let xx = x2-x1;
+	let ax = (x2+x1)/2;
+	let ay = (y2-y1)/2;
+	let yy = y2-y1;	
+	let nn = y2/2-50;
+	if (nn>127) nn = 61; 
+	let dur = (x1+x2+y1+y2);
+	let dur2 = payload.score*4 ;
+    let p1 = (ax/2);  
+    if (p1>120) p1=(12+threshold.mkey)*3+index;
+    let p2 = ay;  
+    if (p2>120) p2=(12+threshold.mkey)*2+index;
+   // metric3.textContent = p1;
+	//metric4.textContent = p2;
+
+	if(index>=0 && index<=11) {  // zone 1-12
+		midiSend(NOTE_ON , p1, xx+yy,dur2);
+	}
+    if(index==0 || index==1 || index==2 || index==3)  {
+	 	midiSend(NOTE_ON+4, p2, yy,dur2);
+	}
+	if(index==4 || index==5 || index==6 || index==7)  {
+	    midiSend(NOTE_ON+4,  p1,nn, dur);
+	}
+	if(index==8 || index==9 || index==10 || index==11)  {
+	  	midiSend(NOTE_ON+4,  p2,nn, dur2);
+	}
+  }
+}	 // !trig zone out
+ 
+
+
+
+function menuTestOscWave(selection)  {	
+    console.log('menu-selection:' ,selection);
+    testosc.type = selection;
+    if(config.OSCenabled) {
+         // Ensure volume is updated if needed
+         gainNode.gain.setTargetAtTime(config.TestOscVol / 100, audioContext.currentTime, 0.1);
+    }
+}
+
+function menuTestONOFF(){
+    if(config.OSCenabled) {
+        testosc.type = config.TestOscWaveform;
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        // Unmute
+        gainNode.gain.setTargetAtTime(config.TestOscVol / 100, audioContext.currentTime, 0.1);
+    }  
+    else {
+        // Mute
+        gainNode.gain.setTargetAtTime(0, audioContext.currentTime, 0.1);
+    }
+    menuTestFreq() ;
+}
+     
+function UpdateOsc() {
+    if(config.TestOscFreq<config.TestOscFreqTarget) config.TestOscFreq++;
+    else config.TestOscFreq--;
+    
+    // Only update Volume from config if NOT in AutoTrigger mode
+    if (!envelope.autoTrigger) {
+        if(config.TestOscVol<config.TestOscVolTarget) config.TestOscVol++;
+        else config.TestOscVol--;
+        
+        if(config.OSCenabled) {
+             gainNode.gain.setTargetAtTime(config.TestOscVol / 100, audioContext.currentTime, 0.05);
+        }
+    }
+    
+    // Apply changes
+    testosc.frequency.setTargetAtTime(config.TestOscFreq, audioContext.currentTime, 0.05);
+}
+
+
+function menuTestFreq()  {
+    testosc.frequency.value = config.TestOscFreq;
+    if(config.OSCenabled) {
+        gainNode.gain.setTargetAtTime(config.TestOscVol / 100, audioContext.currentTime, 0.1);
+    }
+    gui.updateDisplay();
+    console.log('TestOscFreq, Vol: ',config.TestOscFreq, config.TestOscVol ); 
+}
+	
+
+//***********************************************************************************************************
+
+
+let config = {
+	video: video,
+	motionCanvas: canvas,
+	initSuccessCallback: initSuccess,
+	initErrorCallback: initError,
+	captureCallback: capture,
+	captureIntervalTime: 100,		
+	pixelDiffThreshold: 32,
+	scoreThreshold: 16,
+	captureWidth: 1280,
+	captureHeight: 720,
+	diffWidth: 256,				//256x144  downscaled width for diff/motion
+	diffHeight: 144,				// downscaled height for diff/motion
+	includeMotionBox: true,		// flag to calculate and draw motion bounding box
+	includeMotionPixels: false,	// flag to create object denoting pixels with motion
+    
+    MIDIenabled: false,
+    OSCenabled: false,
+    TestOscWaveform:'sine', //{'Sine':'sine', 'Square':'square', 'Triange':'triangle', 'Sawtooth':'sawtooth'} ).onChange(menuTestOscWave);
+	TestOscFreq:432,
+    TestOscFreqTarget:432,
+	TestOscVol: 50,
+	TestOscVolTarget: 50,
+			
+} ;
+
+let config1 = {
+	pixelDiffThreshold: 32,
+	scoreThreshold: 1,
+	captureWidth: 1280,
+	captureHeight: 720,
+	captureDivisor:8,
+	diffWidth: 256,				// downscaled width for diff/motion
+	diffHeight: 144,				// downscaled height for diff/motion
+	includeMotionBox: true,		// flag to calculate and draw motion bounding box
+	includeMotionPixels: false	// flag to create object denoting pixels with motion
+} ;
+
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
+let gui = new dat.GUI({ width: 320 , background_color: 0xFFFFFF });
+SetupGUI() ;
+init();
+
+//***********************************************************************************************************  
+//***********************************************************************************************************
+   
+function playKey() {
+    let n;
+    let i=0;
+    let octbase = 2; 
+    let oct = 2;
+    let ol = 12*octbase+threshold.mkey;
+    let oll =  oct*12;
+    for(i = 1;i<oll;i++) {
+        n = MIDIkeys(threshold.mkey,i+ol);
+        i=n-ol;
+      //  console.log("playKey Notes:", threshold.mkey,i,n);
+        midiSend(NOTE_ON,n,84,500);
+        delay(800);   
+        
+        }
+    }  // !playKey
+ 
+
+
+
+							    // 00 01 02 03 04 05 06 07 08 09 10 11    12    
+							    // 12 13 14 15 16 17 18 19 20 21 22 23    24 
+function MIDIkeys(key,note) {  	// c  c# d  d# e  f  f# g  g# a  a#  b    c+
+  if(note>120) { console.log('note:',note); return note; }	// 24 25 26 27 28 29 30 31 32 33 34 35    36
+  for(let o=12;o<120;o=o+12)  {
+	for(let i=0;i<12;i++) {  
+		if(i==1||i==3||i==6||i==8||i==10) i++;
+       //  console.log('scale:',(key+i+o),note);
+		if((key+i+o)==note) {  console.log('mknote1:',note); return note; } // if note in key, return
+		}  // !for i
+	}	// !for o	
+    note++;
+    console.log('mknote:',note);
+	return note;  // note not in key, add 1 to make in key	
+	}
+ 
+
+function init() {
+	
+	config.captureWidth = config1.captureWidth;
+	config1.captureHeight = config1.captureWidth*9/16;
+	config.captureHeight = config1.captureWidth*9/16;
+	config.captureDivisor = config1.captureWidth/config1.diffWidth;
+	config.diffWidth = config1.diffWidth;
+	config1.diffHeight = config1.diffWidth*9/16;
+	config.diffHeight = config1.diffWidth*9/16;
+	  
+	video.width = config.captureWidth ; 
+	video.height = config.captureHeight;
+	canvas.width = config.captureWidth ; 
+	canvas.height = config.captureHeight;
+	gui.updateDisplay();
+
+	DiffCamEngine.init(config);
+	}  //  !init
+
+
+function SetupGUI() {		
+	gui.close();
+	gui = new dat.GUI({ width: 320 , background_color: 0xFFFFFF });
+     
+	let GUILABEL = gui.addFolder('Motion Controls');
+	gui.add( config, 'includeMotionBox').name('include Motion Box').onChange(init);
+	gui.add( config, 'includeMotionPixels').name('include Motion Pixels').onChange(init);
+	gui.add( config, 'pixelDiffThreshold', 1, 200 ).name('pixel threshold').onChange(init);
+	gui.add( config, 'scoreThreshold', 1, 200 ).name('score threshold').onChange(init);
+    gui.add( threshold, 'mkey', 0, 11 ).step(1).name('MIDI Key (0=c 11=b)').onChange(playKey);
+    gui.add( config, 'MIDIenabled').name('MIDI enabled').onChange(init);
+	 
+	let tgui = gui.addFolder('trigger callback enables');
+	let zgui = gui.addFolder('zone trigger callback enables');
+    let mgui = gui.addFolder('Motion controls');
+    let adsrGui = gui.addFolder('ADSR & Filter');
+
+    adsrGui.add(envelope, 'attack', 0, 5).name('Amp Attack');
+    adsrGui.add(envelope, 'decay', 0, 5).name('Amp Decay');
+    adsrGui.add(envelope, 'sustain', 0, 1).name('Amp Sustain');
+    adsrGui.add(envelope, 'release', 0, 5).name('Amp Release');
+    
+    adsrGui.add(envelope, 'filterFreq', 20, 10000).name('Filter Base Freq').onChange(v => filterNode.frequency.setTargetAtTime(v, audioContext.currentTime, 0.1));
+    adsrGui.add(envelope, 'filterQ', 0, 20).name('Filter Q').onChange(v => filterNode.Q.setTargetAtTime(v, audioContext.currentTime, 0.1));
+    
+    let fEnvGui = adsrGui.addFolder('Filter Envelope');
+    fEnvGui.add(envelope, 'filterSweepEnabled').name('Enable Sweep');
+    fEnvGui.add(envelope, 'fAttack', 0, 5).name('F. Attack');
+    fEnvGui.add(envelope, 'fDecay', 0, 5).name('F. Decay');
+    fEnvGui.add(envelope, 'fSustain', 0, 1).name('F. Sustain');
+    fEnvGui.add(envelope, 'fRelease', 0, 5).name('F. Release');
+    fEnvGui.add(envelope, 'fEnvAmount', -5000, 5000).name('Sweep Amount (Hz)');
+    fEnvGui.open();
+
+    let pitchGui = adsrGui.addFolder('Pitch Randomizer');
+    pitchGui.add(envelope, 'randomPitchEnabled').name('Enable Random');
+    pitchGui.add(envelope, 'chromaticEnabled').name('Chromatic Steps');
+    pitchGui.add(envelope, 'randomPitchRange', 0, 1000).name('Range (Hz/Semi)');
+    pitchGui.open();
+
+    adsrGui.add(envelope, 'autoTrigger').name('Auto-Trigger');
+    adsrGui.add(envelope, 'autoThreshold', 0, 100).name('Trigger Thresh');
+    adsrGui.add(envelope, 'trigger').name('Manual Trigger');
+    adsrGui.open();
+
+	mgui.add( config, 'captureIntervalTime', 1, 200 ).name('Capture Interval mS').onChange(init);
+	mgui.add( config1, 'captureWidth', 320, 1920 ).step(80).name('Capture width').onChange(init);
+	mgui.add( config1, 'captureHeight', 0,0 ).name('Capture height').onChange(init);
+	mgui.add( config1, 'diffWidth', 32, 640 ).step(16).name('Differencing width').onChange(init);
+	mgui.add( config1, 'diffHeight', 0,0 ).name('Differencing height').onChange(init);
+	 
+	tgui.add( threshold, 'trig_smx_EN').name('trig_smx_EN').onChange(init);
+	tgui.add( threshold, 'trig_smy_EN').name('trig_smy_EN').onChange(init);
+	tgui.add( threshold, 'trig_smxy_EN').name('trig_smxy_EN').onChange(init);
+	tgui.add( threshold, 'trig_vert_EN').name('trig_vert_EN').onChange(init);
+	tgui.add( threshold, 'trig_hor_EN').name('trig_hor_EN').onChange(init);
+	tgui.add( threshold, 'trig_square_EN').name('trig_square_EN').onChange(init);
+	tgui.add( threshold, 'trig_lo_EN').name('trig_lo_EN').onChange(init);
+	tgui.add( threshold, 'trig_hi_EN').name('trig_hi_EN').onChange(init);
+	tgui.add( threshold, 'trig_left_EN').name('trig_left_EN').onChange(init);
+	tgui.add( threshold, 'trig_right_EN').name('trig_right_EN').onChange(init);
+	tgui.add( threshold, 'trig_centerX_EN').name('trig_centerX_EN').onChange(init);
+	tgui.add( threshold, 'trig_tallY_EN').name('trig_tallY_EN').onChange(init);
+	tgui.add( threshold, 'trig_wideX_EN').name('trig_wideX_EN').onChange(init);
+	tgui.add( threshold, 'trig_still_EN').name('trig_still_EN').onChange(init);
+	tgui.add( threshold, 'trig_still10_EN').name('trig_still10_EN').onChange(init);
+	
+	zgui.add( threshold, 'zone1_EN').name('zone1_EN').onChange(init);
+	zgui.add( threshold, 'zone2_EN').name('zone2_EN').onChange(init);
+	zgui.add( threshold, 'zone3_EN').name('zone3_EN').onChange(init);
+	zgui.add( threshold, 'zone4_EN').name('zone4_EN').onChange(init);
+	zgui.add( threshold, 'zone5_EN').name('zone5_EN').onChange(init);
+	zgui.add( threshold, 'zone6_EN').name('zone6_EN').onChange(init);
+	zgui.add( threshold, 'zone7_EN').name('zone7_EN').onChange(init);
+	zgui.add( threshold, 'zone8_EN').name('zone8_EN').onChange(init);
+	zgui.add( threshold, 'zone9_EN').name('zone9_EN').onChange(init);
+	zgui.add( threshold, 'zone10_EN').name('zone10_EN').onChange(init);
+	zgui.add( threshold, 'zone11_EN').name('zone11_EN').onChange(init);
+	zgui.add( threshold, 'zone12_EN').name('zone12_EN').onChange(init);
+	
+    let TestOscFolder = gui.addFolder('Test Oscillator');
+	gui.add( config, 'OSCenabled').name('Oscillator enabled').onChange(menuTestONOFF);
+    gui.add( config, 'TestOscWaveform', {'Sine':'sine', 'Square':'square', 'Triange':'triangle', 'Sawtooth':'sawtooth'} ).onChange(menuTestOscWave);
+	gui.add( config, 'TestOscFreq', 30, 8000 ).step(1 ).name('TestOsc Freq Hz:').onChange(menuTestFreq);
+	gui.add( config, 'TestOscVol', 0, 100).name('TestOsc Volume:').onChange(menuTestFreq);
+		 
+	console.log('gui:', gui);
+//	gui.close(); 
+	
+	}  // ! SetupGUI	
+		
+  
+//***********************************************************************************************************
+
+
+// MIDI CONFIG
+let midiOutput = null;
+let currentSequenceId = -1;
+const START = 41;
+let intervals = [0, 4, 7, 11, 12, 11, 7, 4];
+let sequence =  intervals.map(x => x + START);
+const NOTE_ON = 0x90;
+const NOTE_OFF = 0x80;
+const NOTE_DURATION = 300;
+
+connect();
+
+//***********************************************************************************************************
+
+function midiSend(c,mn,v,dur)  {
+  if(config.MIDIenabled) {  
+	if(typeof dur == 'undefined') dur = 1000; 
+	c = Math.floor(c);
+	mn = Math.floor(mn);
+	v = Math.floor(v);
+	let n = MIDIkeys(threshold.key,mn); // check note - correct into current key	
+	if(c>255) c=NOTE_OFF;
+	if(n>127) {n=n-67; if(n>127) n=32;}
+	if(v>127) v=0x7F;
+	if(dur>2000) dur=2000;
+	if(n<0) n=30;
+	if(v<0) v=30;
+	
+	midiOutput.send([c,n,v] ); 
+ 	console.log("midi Note OUT send:",c,n,v,3*dur); 	
+
+
+     metric0.textContent = c;		
+	 metricm2.textContent = n;		
+	 metricm3.textContent = v;		
+	
+	if(c>=0x90&&c<=0x9F) {  //  144 NOTE_ON
+		midiOutput.send( [(c-0x90+0x80),n,0], window.performance.now() + 3*dur ); // Inlined array creation- note off 
+//		console.log("midi Note-Off send:",(c-0x90+0x80),n,0,Math.floor(  3*dur)); 	
+		}
+	}
+  }  // !midisend
+
+ 
+  const playSeq = function() {
+  if (currentSequenceId >= 0) {
+    midiOutput.send([NOTE_OFF, sequence[currentSequenceId], 0x7f]);
+  }
+  currentSequenceId++;
+  if (currentSequenceId >= sequence.length) {
+    currentSequenceId = 0;
+  }
+  midiOutput.send([NOTE_ON, sequence[currentSequenceId], 0x7f]);
+  console.log ('MIDI Output:' , NOTE_ON, sequence[currentSequenceId], 0x7f);
+  setTimeout(playSeq, NOTE_DURATION);
+}    // !PlaySeq
+
+
+function connect() {
+  navigator.requestMIDIAccess()
+  .then(
+    (midi) => midiReady(midi),
+    (err) => console.log('Something went wrong - NO MIDI', err));
+    }   // ! connect()
+
+function midiReady(midi) {
+    
+  // Also react to device changes.
+  midi.addEventListener('statechange', (event) => initMIDIDevices(event.target));
+  initMIDIDevices(midi); // see the next section!
+ // console.log('MIDI InitMIDIDevices complete. ');
+ 
+    // MIDI devices that you send data to.
+    const outputs = midi.outputs.values();
+    console.log('List ALL MIDI Output Ports:', outputs);
+    for(const output of outputs) {
+      if(output.id=='output-3') { 
+		console.log('MIDI Out port:' , output);
+        midiOutput = output;
+        }
+	}	
+    //playSeq();
+    midiANO() ;  // 
+    };  // ! midiReady
+
+ 
+ 
+ //  outputs.send([0x90, 0x3C, 0x80]);  // hexadecimal
+ // outputs.send([144, 60, 128]);      // decimal
+ 
+
+function initMIDIDevices(midi) {
+  // Reset.
+  for (var input of midi.inputs.values()) {
+        input.onmidimessage = midiMessageReceived;
+    }
+ 
+  // MIDI devices that send you data.
+  const inputs = midi.inputs.values();
+//  console.log('inputs:' , inputs);
+
+  for (let input = inputs.next(); input && !input.done; input = inputs.next()) {
+  //  midiIn.push(input.value);
+    console.log('input.value:' , input.value);
+    }
+}  // ! initMIDIDevices
+
+
+function midiMessageReceived(event) {
+  // MIDI commands we care about. 
+  // console.log(event);    // print raw packet
+  
+  const NOTE_ON = 9;
+  const NOTE_OFF = 8;
+  const AFTERTOUCH = 10;    // A = Aftertouch
+  const CC = 11;            // B = Continuous Control Change (2)
+  const PGM_CHANGE = 12;    // C = PGM Change (2)
+  const PRESSURE = 13;      // D = PRESSURE (1)
+  const PITCH_BEND = 14;    // E = PITCH BEND (2)
+ 
+  const ch = (event.data[0] & 15)+1;
+  const cmd = event.data[0] >> 4;
+  const pitch = event.data[1];
+  const velocity = (event.data.length > 2) ? event.data[2] : 1;
+  // You can use the timestamp to figure out the duration of each note.
+  const timestamp = Date.now();
+  let Note = 0; 
+  
+  if (cmd === NOTE_OFF || (cmd === NOTE_ON && velocity === 0)) {
+    console.log('NoteOff:',cmd,pitch,velocity );
+ 
+   if (pitch == 50)  { // apc20 Actuator Btns Row
+        if(ch===1) { config.RUN_FLAG=false;    }
+        }
+        gui.updateDisplay();
+    }    // /NoteOff
+
+   else if (cmd === NOTE_ON) {
+    console.log('NoteOff:',cmd,pitch,velocity );
+    let Note = 0;
+      
+      if (pitch == 50)  { // apc20 Actuator Btns Row
+        if(ch===1) {config.RUN_FLAG=true;       
+            midiOutput.send([NOTE_ON + 2, 50, 0x7F]); }    
+        }
+  
+      if (pitch == 36)
+      Note = ('1');    // press  1
+       
+      console.log("Note ON Ch", ch, "MIDI NOTE:",pitch, 'Vel:' ,velocity );
+ 
+   }   // ! note ON
+
+   else if (cmd === CC) {
+    if (pitch === 12)   {
+        pointers[0].moved = true;                       // touchpad "X"
+        let tempx = canvas.width*velocity/128 ;
+        pointers[0].dx = (tempx - pointers[0].x) * 5.0;
+        pointers[0].x = tempx;
+        }
+
+    if (pitch === 13)   {
+        pointers[0].moved = true;                       // touchpad "Y"
+        let tempy = canvas.height*(128-velocity)/128 ;
+        pointers[0].dy = (tempy - pointers[0].y) * 5.0;
+        pointers[0].y = tempy;
+        }
+       
+        gui.updateDisplay();
+        }  // ! Faders
+  
+}   // ! midiMessage received event
+
+
+function sendMidiMessage(pitch, velocity, duration) {
+  const NOTE_ON = 0x90;
+  const NOTE_OFF = 0x80;
+  
+  const device = midiOut[selectOut.selectedIndex];
+  const msgOn = [NOTE_ON, pitch, velocity];
+  const msgOff = [NOTE_OFF, pitch, velocity];
+  
+  // First send the note on;
+  device.send(msgOn); 
+    
+  // Then send the note off. You can send this separately if you want 
+  // (i.e. when the button is released)
+  device.send(msgOff, Date.now() + duration); 
+}   // !SendMIDImessage
+
+
+//***************************************************************
+
+ </script>
+	</body>
+</html>

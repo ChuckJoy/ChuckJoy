@@ -1,0 +1,18 @@
+{
+  "name": "tunetolight-playground",
+  "version": "1.0.0",
+  "description": "3D visualization and audio experimentation playground",
+  "main": "3Dserver-cda1.js",
+  "scripts": {
+    "start": "node 3Dserver-cda1.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "threejs",
+    "web-audio",
+    "visualization"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {}
+}

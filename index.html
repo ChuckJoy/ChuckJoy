@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chuck Joy's 3D Graphics Playground</title>
+    <style>
+        :root {
+            --bg-color: #e3f2fd; /* Light Blue 50 */
+            --header-bg: #bbdefb; /* Light Blue 100 */
+            --menu-bg: #90caf9; /* Light Blue 200 */
+            --menu-hover: #64b5f6; /* Light Blue 300 */
+            --box-bg: #e1f5fe; /* Light Blue 50 (Alternate) */
+            --box-border: #81d4fa; /* Light Blue 200 */
+            --text-color: #000000;
+            --text-high-contrast: #0d47a1; /* Dark Blue */
+            --highlight: #2979ff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden; 
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            color: var(--text-high-contrast);
+        }
+
+        /* --- Header Section (Top) --- */
+        #header-section {
+            background-color: var(--header-bg);
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            border-bottom: 2px solid var(--highlight);
+            min-height: 120px;
+            flex-shrink: 0;
+        }
+
+        /* Audio Player (Upper Left) */
+        .audio-player-box {
+            width: 320px;
+            background-color: #fff;
+            border: 2px solid var(--text-high-contrast);
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            margin-right: 20px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .audio-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: var(--text-high-contrast);
+            text-align: center;
+            font-size: 1.1em;
+        }
+
+        .audio-controls select {
+             width: 100%;
+             padding: 5px;
+             background: #fff;
+             color: #000;
+             border: 1px solid #777;
+             font-weight: bold;
+             margin-bottom: 5px;
+        }
+
+        audio { width: 100%; height: 35px; }
+
+        /* Header Text (Center/Right) */
+        #header-text-container {
+            flex-grow: 1;
+            text-align: center;
+        }
+
+        /* Help Box (Top Right) - WIDENED */
+        .help-box {
+            width: 500px; 
+            background-color: #fff;
+            border: 2px solid var(--text-high-contrast);
+            padding: 15px;
+            height: 120px;
+            color: #000;
+            overflow-y: auto; 
+            font-size: 1em;
+            margin-left: 20px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .help-box h3 { 
+            margin-top: 0; 
+            margin-bottom: 8px; 
+            color: var(--text-high-contrast); 
+            font-size: 1.1em; 
+            border-bottom: 2px solid var(--highlight); 
+            padding-bottom: 3px;
+            flex-shrink: 0;
+        }
+        
+        #helpContent {
+            line-height: 1.4;
+            font-weight: 500;
+        }
+
+        /* --- Menu Bar --- */
+        #menubar {
+            background-color: var(--menu-bg);
+            display: flex;
+            border-bottom: 2px solid var(--highlight);
+            flex-shrink: 0;
+            padding: 0 10px;
+        }
+
+        .menu-category {
+            float: left;
+            position: relative; 
+        }
+
+        .menu-btn {
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            outline: none;
+            color: #000;
+            padding: 14px 20px;
+            background-color: inherit;
+            font-family: inherit;
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .menu-category:hover .menu-btn {
+            background-color: var(--menu-hover);
+        }
+
+        .menu-content {
+            display: none;
+            position: absolute;
+            background-color: #fff;
+            min-width: 200px;
+            width: max-content; /* Allow to grow with content */
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.3);
+            z-index: 1000;
+            border: 1px solid var(--highlight);
+        }
+
+        .menu-content a {
+            float: none;
+            color: #000;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            text-align: left;
+            cursor: pointer;
+            font-weight: 600;
+            white-space: nowrap; /* Prevent wrapping */
+        }
+        
+        .menu-content a img.thumb {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            vertical-align: middle;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+        }
+
+        .menu-content a:hover {
+            background-color: var(--bg-color);
+        }
+
+        .menu-category:hover .menu-content {
+            display: block;
+        }
+
+        /* --- Graphics Grid (Bottom) --- */
+        .container {
+            display: flex;
+            flex-wrap: nowrap; 
+            padding: 10px;
+            justify-content: space-between;
+            flex-grow: 1;
+            overflow-y: auto;
+            gap: 15px;
+            height: 100%;
+        }
+
+        .graphics-box {
+            background-color: var(--box-bg);
+            border: 2px solid var(--box-border);
+            margin-bottom: 0;
+            flex: 1;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            min-height: 200px; /* Reduced to fit better on smaller screens */
+            height: 100%;
+        }
+
+        .box-header {
+            background-color: var(--header-bg);
+            padding: 10px;
+            display: flex;
+            flex-direction: column; /* Stack vertically */
+            align-items: flex-start;
+            border-bottom: 1px solid var(--box-border);
+        }
+        
+        .box-header-top {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .box-header-bottom {
+            width: 100%;
+            display: flex;
+            justify-content: flex-end; /* Controls to the right */
+            gap: 8px;
+        }
+
+        .box-controls-left {
+            /* Now just contains the launch button and title */
+             display: flex;
+            align-items: center;
+        }
+
+        .launch-btn {
+            background-color: #00c853; 
+            border: 1px solid #009624;
+            color: white;
+            padding: 4px 10px; /* Smaller padding */
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 12px; /* Smaller font */
+            font-weight: bold;
+            margin-right: 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+        }
+        
+        .launch-btn:hover { background-color: #00e676; }
+
+        .box-title {
+            font-weight: 900;
+            font-size: 1.0em;
+            color: var(--text-high-contrast);
+        }
+
+        .box-controls-right {
+             /* Wrapper for selects */
+             display: flex;
+             gap: 8px;
+             width: 100%;
+             justify-content: space-between;
+        }
+
+        .box-controls-right select {
+            background: #fff;
+            color: #000;
+            border: 1px solid var(--highlight);
+            padding: 6px;
+            font-weight: bold;
+            flex-grow: 1; /* Expand to fill width */
+            max-width: 48%; /* Ensure they fit side-by-side */
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #000;
+            flex-grow: 1;
+        }
+        
+        #picModal {
+            display: none; 
+            position: fixed; 
+            z-index: 2000; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.9); 
+        }
+
+        #picModalContent {
+            margin: auto;
+            display: block;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            object-fit: contain;
+            margin-top: 50px;
+            border: 5px solid white;
+        }
+
+        #picCaption {
+            margin: auto;
+            display: block;
+            width: 80%;
+            text-align: center;
+            color: #fff;
+            padding: 20px 0;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 50px;
+            font-weight: bold;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #bbb;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .menu-spacer { flex-grow: 1; }
+
+        /* File Browser Modal Styles */
+        #fileBrowserModal {
+            display: none; 
+            position: fixed; 
+            z-index: 2000; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.8); 
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto; 
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; 
+            max-width: 800px;
+            color: #000;
+            font-family: monospace;
+        }
+        
+        /* Dark mode for modal content to match previous style preference if needed, or keep light */
+        .modal-content {
+            background-color: #222;
+            color: #fff;
+        }
+
+        .close-modal {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close-modal:hover,
+        .close-modal:focus {
+            color: white;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .tab-bar {
+            overflow: hidden;
+            border-bottom: 1px solid #444;
+            margin-bottom: 15px;
+        }
+
+        .tab-btn {
+            background-color: inherit;
+            float: left;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 14px 16px;
+            transition: 0.3s;
+            font-size: 17px;
+            color: #ccc;
+        }
+
+        .tab-btn:hover {
+            background-color: #444;
+        }
+
+        .tab-btn.active {
+            background-color: #555;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 6px 12px;
+            border-top: none;
+            height: 400px;
+            overflow-y: auto;
+        }
+
+        .file-list-item {
+            padding: 5px;
+            border-bottom: 1px solid #333;
+            cursor: pointer;
+        }
+        .file-list-item:hover {
+            background-color: #444;
+        }
+        .dir-item {
+            color: #ffd700;
+            font-weight: bold;
+        }
+        .file-item {
+            color: #00ff00;
+        }
+        
+        .path-header {
+            padding: 10px;
+            background: #333;
+            margin-bottom: 10px;
+        }
+        
+        .service-btn {
+            background-color: #4285F4;
+            color: white;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+            margin-right: 5px;
+        }
+        
+        .dropbox-btn {
+            background-color: #0061FE;
+        }
+        
+        .upload-area {
+            border: 2px dashed #ccc;
+            padding: 40px;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Header Section -->
+    <div id="header-section">
+        
+        <div class="audio-player-box">
+            <div class="audio-title">Music Player</div>
+            <div class="audio-controls">
+                <select id="musicSelect" onchange="playMusic(this.value)">
+                    <option value="">Select Track...</option>
+                </select>
+            </div>
+            <audio id="mainAudio" controls>
+                <source src="" type="audio/mp3">
+                Your browser does not support the audio element.
+            </audio>
+        </div>
+
+        <div id="header-text-container">
+            <h1 id="site-title">Chuck Joy's 3D Graphics Playground</h1>
+            <h3 id="site-subtitle">Sacred Geometries - 3D Imagery - Interactive Art - Songs</h3>
+        </div>
+
+        <div class="help-box" id="helpArea">
+            <h3>Help & Info</h3>
+            <div id="helpContent">Hover over a graphics box or menu to see details here.</div>
+        </div>
+
+    </div>
+
+    <!-- Top Menu Bar -->
+    <div id="menubar">
+        <!-- Menus injected via JS -->
+    </div>
+
+    <!-- 3 Graphics Boxes -->
+    <div class="container">
+        
+        <!-- Box 1: AOM -->
+        <div class="graphics-box" id="box1" onmouseenter="showHelp('help_AOM.txt')">
+            <div class="box-header">
+                <div class="box-header-top">
+                    <div class="box-controls-left">
+                        <button class="launch-btn" onclick="launchApp('sel-box1-file', 'sel-box1-opt')">Launch</button>
+                        <span class="box-title">Art of Motion</span>
+                    </div>
+                </div>
+                <div class="box-header-bottom">
+                    <div class="box-controls-right">
+                        <select id="sel-box1-file" onchange="loadFrame('frame1', this.value)">
+                            <!-- Populated by JS -->
+                        </select>
+                        <select id="sel-box1-opt" onchange="reloadWithPreset('frame1', 'sel-box1-file', this.value)">
+                            <option value="">Presets...</option>
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <iframe id="frame1" src="AOM-M6-helix-mic-LOOP-client.html"></iframe>
+        </div>
+
+        <!-- Box 2: LIS -->
+        <div class="graphics-box" id="box2" onmouseenter="showHelp('help_LIS.txt')">
+            <div class="box-header">
+                <div class="box-header-top">
+                    <div class="box-controls-left">
+                         <button class="launch-btn" onclick="launchApp('sel-box2-file', 'sel-box2-opt')">Launch</button>
+                        <span class="box-title">Lost In Space</span>
+                    </div>
+                </div>
+                <div class="box-header-bottom">
+                    <div class="box-controls-right">
+                        <select id="sel-box2-file" onchange="loadFrame('frame2', this.value)">
+                             <!-- Populated by JS -->
+                        </select>
+                        <select id="sel-box2-opt" onchange="reloadWithPreset('frame2', 'sel-box2-file', this.value)">
+                            <option value="">Presets...</option>
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <iframe id="frame2" src="LostInSpace.html"></iframe>
+        </div>
+
+        <!-- Box 3: Experiments -->
+        <div class="graphics-box" id="box3" onmouseenter="showHelp('help_Other.txt')">
+            <div class="box-header">
+                <div class="box-header-top">
+                    <div class="box-controls-left">
+                         <button class="launch-btn" onclick="launchApp('sel-box3-file', 'sel-box3-opt')">Launch</button>
+                        <span class="box-title">Experiments</span>
+                    </div>
+                </div>
+                <div class="box-header-bottom">
+                    <div class="box-controls-right">
+                        <select id="sel-box3-file" onchange="loadFrame('frame3', this.value)">
+                             <!-- Populated by JS -->
+                        </select>
+                        <select id="sel-box3-opt">
+                            <option value="">Options...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <iframe id="frame3" src="webgl_lines_sphere.html"></iframe>
+        </div>
+
+    </div>
+    
+    <!-- Picture Modal -->
+    <div id="picModal">
+        <span class="close" onclick="document.getElementById('picModal').style.display='none'">&times;</span>
+        <img class="modal-content" id="picModalContent">
+        <div id="picCaption"></div>
+    </div>
+
+    <!-- File Browser Modal -->
+    <div id="fileBrowserModal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="document.getElementById('fileBrowserModal').style.display='none'">&times;</span>
+            <h2>Audio File Browser</h2>
+            
+            <div class="tab-bar">
+                <button class="tab-btn active" onclick="openTab(event, 'ServerFiles')">Local Server Files</button>
+                <button class="tab-btn" onclick="openTab(event, 'GoogleDrive')">Google Drive</button>
+                <button class="tab-btn" onclick="openTab(event, 'Dropbox')">Dropbox</button>
+                <button class="tab-btn" onclick="openTab(event, 'LocalUpload')">My Device</button>
+            </div>
+
+            <!-- Tab 1: Server Files -->
+            <div id="ServerFiles" class="tab-content" style="display: block;">
+                <div class="path-header">
+                    Current Path: <span id="currentPath">Loading...</span>
+                    <button id="btnUpDir">Up</button>
+                </div>
+                <div id="serverFileList">
+                    <!-- Files will be populated here -->
+                </div>
+            </div>
+
+            <!-- Tab 2: Google Drive -->
+            <div id="GoogleDrive" class="tab-content">
+                <h3>Google Drive Integration</h3>
+                <p>Access your Google Drive audio files.</p>
+                <button id="authorize_button" class="service-btn" style="display: none;">Authorize Google Drive</button>
+                <button id="signout_button" class="service-btn" style="display: none;">Sign Out</button>
+                <div id="content_gdrive" style="margin-top: 10px;"></div>
+                <p><i>Note: Placeholder. Requires Google API Client ID configuration.</i></p>
+            </div>
+
+            <!-- Tab 3: Dropbox -->
+            <div id="Dropbox" class="tab-content">
+                <h3>Dropbox Integration</h3>
+                <p>Access your Dropbox audio files.</p>
+                <button id="auth_dropbox" class="service-btn dropbox-btn">Connect Dropbox</button>
+                <div id="content_dropbox" style="margin-top: 10px;"></div>
+                <p><i>Note: Placeholder. Requires Dropbox API App Key.</i></p>
+            </div>
+
+            <!-- Tab 4: Local Upload -->
+            <div id="LocalUpload" class="tab-content">
+                <h3>Select from Device</h3>
+                <div class="upload-area">
+                    <input type="file" id="localFileInput" accept=".mp3,.wav" />
+                    <p>Select an audio file from your computer.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- Data Definitions ---
+    
+    const filesAOM = [
+        { name: "Art of Motion (Main)", url: "AOM-M6-helix-mic-LOOP-client.html" },
+        { name: "Art of Motion (Alt)", url: "AOM-M6-GUI-midi-mic-LOOP-client" }
+    ];
+
+    const filesLIS = [
+        { name: "Lost In Space (Main)", url: "LostInSpace_Unified.html?mode=Standard" },
+        { name: "Lost In Space (FFT)", url: "LostInSpace_Unified.html?mode=FFT" },
+        { name: "Lost In Space (Legacy)", url: "LostInSpace.html" },
+        { name: "Lost In Space (Legacy FFT)", url: "LostInSpaceFFT.html" }
+        
+    ];
+
+    const filesOther = [
+        { name: "Audio Test Project", url: "AudioDemoSandbox.html" },
+        { name: "Video Theremin OSC Tones", url: "DIFFCAM1.html" },
+        { name: "Video Theremin MIDI", url: "VideoTherimenMIDI1.html" },
+        { name: "Balls Demo", url: "balls-demo.HTML" },
+        { name: "Grid 3D", url: "GRID-3D-DEMO.HTML" },
+        { name: "Snowfall", url: "Snowfall.html" },
+        { name: "Three Scene 1", url: "THREE_Scene1.html" },
+        { name: "WebAudio Visualizer", url: "webaudio_visualizer.html" },
+        { name: "WebGL Anaglyph floating balls", url: "webgl_effects_anaglyph.html" },
+        { name: "WebGL Lines Sphere Ball Demo", url: "webgl_lines_sphere.html" },
+        { name: "WebGL Blobs & Cubes", url: "webgl_marchingcubes.html" },
+        { name: "WebGL Materials Video", url: "webgl_materials_video.html" },
+        { name: "Balls on Grid-Materials & Lighting", url: "webgl_nodes_materials_instance_uniform.html" },
+        { name: "WebGL Postprocessing SSAA", url: "webgl_postprocessing_ssaa.html" },
+        { name: "Three js Editor", url: "https://threejs.org/editor/" },
+         { name: "A Frame 3D Virtual Builder", url: "https://aframe.io/" }
+   
+      ];
+
+    const helpData = {
+        "help_AOM.txt": "Art of Motion: A series of interactive 3D visualizations that react to microphone input. Select a specific configuration from the 'Presets' menu to change the visual behavior instantly. Click 'Launch' to open in a full window.",
+        "help_LIS.txt": "Lost In Space: Navigate procedural starfields and nebulas. The 'Presets' menu loads saved states defining camera position, speed, and star density. Use keyboard shortcuts (J to Save, U to Load) within the demo. 'Launch' for immersive mode.",
+        "help_Other.txt": "Experiments: A demonstration of various WebGL techniques. 'Anaglyph Effects' creates 3D red/cyan stereoscopic views. Explore different demos to see particle systems, physics simulations, and video processing tests.",
+        "default": "Welcome to the Website. Use the top menu for navigation and the Audio Player on the left to control music. Hover over any box to see details here."
+    };
+    
+    let availableImages = [];
+    let availableMusic = [];
+    let availablePresetsA = [];
+    let availablePresetsL = [];
+
+    // --- Initialization ---
+
+    function init() {
+        loadSiteText();
+        fetchAllData(); 
+        
+        populateSelect("sel-box1-file", filesAOM, filesAOM[0].url);
+        populateSelect("sel-box2-file", filesLIS, filesLIS[0].url);
+        populateSelect("sel-box3-file", filesOther, filesOther[9].url);
+        
+        // Setup Audio Auto-Advance
+        const audio = document.getElementById('mainAudio');
+        audio.onended = function() {
+            playNextTrack();
+        };
+    }
+
+    // --- Loading Data ---
+
+    function fetchAllData() {
+        
+        // 1. Fetch Music
+        fetch('api_v2.php?action=get_music')
+            .then(res => {
+                if(!res.ok) throw new Error("HTTP " + res.status);
+                return res.json();
+            })
+            .then(music => {
+                console.log("Music loaded:", music ? music.length : 0);
+                if(Array.isArray(music) && music.length > 0) {
+                    availableMusic = music;
+                    populateMusic(music);
+                } else {
+                    console.warn("Music array empty or invalid");
+                }
+            })
+            .catch(err => console.error("Error fetching music:", err));
+
+        // 2. Fetch AOM Presets
+        fetch('api_v2.php?action=get_presets&type=AOM')
+            .then(res => {
+                if(!res.ok) throw new Error("HTTP " + res.status);
+                return res.json();
+            })
+            .then(presetsA => {
+                console.log("AOM Presets loaded:", presetsA ? presetsA.length : 0);
+                if(Array.isArray(presetsA) && presetsA.length > 0) {
+                    availablePresetsA = presetsA;
+                    populatePresetSelect("sel-box1-opt", presetsA);
+                }
+            })
+            .catch(err => console.error("Error fetching AOM presets:", err));
+
+        // 3. Fetch LIS Presets
+        fetch('api_v2.php?action=get_presets&type=LIS')
+            .then(res => {
+                if(!res.ok) throw new Error("HTTP " + res.status);
+                return res.json();
+            })
+            .then(presetsL => {
+                console.log("LIS Presets loaded:", presetsL ? presetsL.length : 0);
+                if(Array.isArray(presetsL) && presetsL.length > 0) {
+                    availablePresetsL = presetsL;
+                    populatePresetSelect("sel-box2-opt", presetsL);
+                }
+            })
+            .catch(err => console.error("Error fetching LIS presets:", err));
+
+        // 4. Fetch Images
+        fetch('api_v2.php?action=get_images')
+            .then(res => {
+                if(!res.ok) throw new Error("HTTP " + res.status);
+                return res.json();
+            })
+            .then(images => {
+                if(Array.isArray(images)) availableImages = images;
+            })
+            .catch(err => console.error("Error fetching images:", err));
+
+        // 5. Load Static Menus (Always do this)
+        loadMenus();
+    }
+
+    function loadSiteText() {
+        fetch('site_text.json')
+            .then(res => res.json())
+            .then(data => {
+                const header = data.header;
+                if(header) {
+                    const title = document.getElementById('site-title');
+                    const subtitle = document.getElementById('site-subtitle');
+                    title.innerText = header.title;
+                    subtitle.innerText = header.subtitle;
+                }
+            })
+            .catch(err => console.error(err));
+    }
+
+    function loadMenus() {
+        fetch('menus.json')
+            .then(res => res.json())
+            .then(data => {
+                const menubar = document.getElementById('menubar');
+                menubar.innerHTML = ''; 
+                
+                if (data.menus) {
+                    const menusToRenderLeft = [];
+                    const menusToRenderRight = [];
+                    
+                    data.menus.forEach(menu => {
+                         if (menu.title === 'Other Sites') {
+                             menusToRenderRight.push(menu);
+                         }
+                         else {
+                             menusToRenderLeft.push(menu);
+                         }
+                    });
+                    
+                    // 1. Render Left Menus
+                    menusToRenderLeft.forEach(menu => renderMenu(menu, menubar));
+                    
+                    // 2. Spacer
+                    const spacer = document.createElement('div');
+                    spacer.className = 'menu-spacer';
+                    menubar.appendChild(spacer);
+                    
+                    // 3. Render Right Menus
+                    menusToRenderRight.forEach(menu => renderMenu(menu, menubar, true));
+                }
+            })
+            .catch(err => console.error(err));
+    }
+    
+    function renderMenu(menu, container, isRightAligned) {
+        const menuDiv = document.createElement('div');
+        menuDiv.className = 'menu-category';
+        
+        let itemsHtml = '';
+        menu.items.forEach(item => {
+            let clickAction = "";
+            
+            // ALWAYS open URLs in new window per user request
+            if (item.url) {
+                // Check if it's the specific local file that needs fixing (escaped backslashes logic handled in JSON, but here just use value)
+                clickAction = `window.open('${item.url.replace(/\\/g, '\\\\')}', '_blank')`; 
+            }
+            else if (item.action) {
+                clickAction = `handleAction("${item.action}")`;
+            }
+            
+            let thumbImg = "";
+            if (menu.title === "Other Sites" || menu.title === "Pictures") {
+                const searchName = item.label.toLowerCase();
+                let foundFile = availableImages.find(f => f.toLowerCase().includes(searchName));
+                
+                let imgSrc = "";
+                const match = item.action ? item.action.match(/'([^']+)'/g) : null;
+                const defaultPath = (match && match.length >= 2) ? match[1].replace(/'/g, "") : "";
+                
+                if (foundFile) {
+                    imgSrc = "./images/" + foundFile;
+                    if (item.action && item.action.startsWith("showPicture")) {
+                        const title = match[0].replace(/'/g, ""); 
+                        clickAction = `handleAction("showPicture('${title}', '${imgSrc}')")`;
+                    }
+                } else {
+                    imgSrc = defaultPath;
+                }
+                
+                if (!item.action && item.url) {
+                     imgSrc = "images/background_image6.png"; 
+                }
+                
+                if(imgSrc) thumbImg = `<img src="${imgSrc}" class="thumb" onerror="this.style.display='none'">`;
+            }
+
+            let disp = item.label;
+            if (item.hotkey) disp += `<span style="float:right;color:#666;font-size:0.8em;margin-left:10px">${item.hotkey}</span>`;
+            
+            itemsHtml += `<a onclick="${clickAction}">${thumbImg}${disp}</a>`;
+        });
+
+        menuDiv.innerHTML = `
+            <button class="menu-btn">${menu.title}</button>
+            <div class="menu-content" ${isRightAligned ? 'style="right:0;"' : ''}>
+                ${itemsHtml}
+            </div>
+        `;
+        container.appendChild(menuDiv);
+    }
+
+    // --- Actions ---
+
+    function handleAction(action) {
+        if (action.startsWith("playMusic")) {
+             const match = action.match(/'([^']+)'/);
+             if(match) playMusic(match[1]);
+        }
+        else if (action.startsWith("showPicture")) {
+             const parts = action.match(/'([^']+)'/g);
+             if (parts && parts.length >= 2) {
+                 const title = parts[0].replace(/'/g, "");
+                 const path = parts[1].replace(/'/g, "");
+                 openPicModal(title, path);
+             }
+        }
+        else if (action === "stopMusic") {
+            const audio = document.getElementById('mainAudio');
+            audio.pause();
+            audio.currentTime = 0;
+        }
+        else if (action === "showHelpMain") {
+            showHelp("default");
+        }
+        else if (action === "toggleFS") {
+            if (!document.fullscreenElement) document.body.requestFullscreen();
+            else document.exitFullscreen();
+        }
+        else if (action === "resetAll") {
+            location.reload();
+        }
+    }
+
+    // --- UI Helpers ---
+
+    function populateSelect(id, files, defaultUrl) {
+        const sel = document.getElementById(id);
+        sel.innerHTML = "";
+        let selectedIndex = 0;
+        files.forEach((f, idx) => {
+            const opt = document.createElement('option');
+            opt.value = f.url;
+            opt.innerText = f.name;
+            if (f.url === defaultUrl) selectedIndex = idx;
+            sel.appendChild(opt);
+        });
+        sel.selectedIndex = selectedIndex;
+    }
+
+    function populatePresetSelect(id, files) {
+        const sel = document.getElementById(id);
+        sel.innerHTML = '<option value="">Select Preset...</option>';
+        files.forEach(f => {
+            const opt = document.createElement('option');
+            // API returns objects {id, name, ...}, use f.name
+            const val = f.name || f; 
+            opt.value = val;
+            opt.innerText = val;
+            sel.appendChild(opt);
+        });
+    }
+
+    function populateMusic(files) {
+        const sel = document.getElementById('musicSelect');
+        sel.innerHTML = '<option value="">-- Select Track --</option>';
+        
+        // Add Browse Option
+        const browseOpt = document.createElement('option');
+        browseOpt.value = "__BROWSE__";
+        browseOpt.innerText = "📁 Browse Audio File...";
+        browseOpt.style.fontWeight = "bold";
+        browseOpt.style.color = "blue";
+        sel.appendChild(browseOpt);
+        
+        files.forEach(f => {
+            const opt = document.createElement('option');
+            // API returns objects {id, filename, filepath}, use f.filename
+            const val = f.filename || f; 
+            opt.value = val;
+            opt.innerText = val;
+            sel.appendChild(opt);
+        });
+        sel.selectedIndex = 0; // Select the prompt by default
+    }
+
+    // --- File Browser Logic ---
+    let currentServerPath = '';
+
+    window.openTab = function(evt, cityName) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tab-content");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+        }
+        tablinks = document.getElementsByClassName("tab-btn");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+        document.getElementById(cityName).style.display = "block";
+        evt.currentTarget.className += " active";
+    }
+
+    function fetchServerFiles(path) {
+        let url = 'api_v2.php?action=browse';
+        if (path) url += '&dir=' + encodeURIComponent(path);
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error("Browse error:", data.error);
+                    return;
+                }
+                currentServerPath = data.path;
+                document.getElementById('currentPath').innerText = data.path || "Root";
+                
+                const listDiv = document.getElementById('serverFileList');
+                listDiv.innerHTML = '';
+
+                // Render Files
+                if (data.files) {
+                    data.files.forEach(file => {
+                        const div = document.createElement('div');
+                        div.className = 'file-list-item ' + (file.type === 'dir' ? 'dir-item' : 'file-item');
+                        const icon = file.type === 'dir' ? '📁 ' : '🎵 ';
+                        div.innerText = icon + file.name;
+                        div.onclick = () => {
+                            if (file.type === 'dir') {
+                                fetchServerFiles(file.path);
+                            } else {
+                                // Play Audio
+                                let playPath = 'music/' + file.path;
+                                playMusic(playPath);
+                                document.getElementById('fileBrowserModal').style.display = "none";
+                            }
+                        };
+                        listDiv.appendChild(div);
+                    });
+                }
+                
+                // Setup Up Button
+                 document.getElementById('btnUpDir').onclick = () => {
+                     if (data.parent !== null) fetchServerFiles(data.parent);
+                 };
+
+            })
+            .catch(err => console.error(err));
+    }
+    
+    // Local File Input Logic
+    document.getElementById('localFileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const url = URL.createObjectURL(file);
+        playMusic(url); 
+        document.getElementById('fileBrowserModal').style.display = "none";
+    });
+
+    function loadFrame(frameId, url) {
+        if (!url) return;
+        document.getElementById(frameId).src = url;
+    }
+    
+    function reloadWithPreset(frameId, fileSelId, presetName) {
+        if(!presetName) return;
+        
+        const frame = document.getElementById(frameId);
+        const sel = document.getElementById(fileSelId);
+        const baseUrl = sel.value;
+        
+        // Find the preset object from our loaded data
+        let presetObj = null;
+        if (frameId === 'frame1') presetObj = availablePresetsA.find(p => p.name === presetName);
+        if (frameId === 'frame2') presetObj = availablePresetsL.find(p => p.name === presetName);
+        if (!presetObj) {
+             presetObj = availablePresetsA.find(p => p.name === presetName) || availablePresetsL.find(p => p.name === presetName);
+        }
+
+        // 1. Reset/Reload the program
+        frame.src = baseUrl;
+        
+        // 2. Load Preset after it loads
+        frame.onload = function() {
+            if (frame.contentWindow && frame.contentWindow.LoadURL) {
+                 loadPresetIntoFrame(frame, presetObj, presetName);
+            } else {
+                console.log("LoadURL not found immediately on " + frameId + ", waiting...");
+                let attempts = 0;
+                const checkInterval = setInterval(() => {
+                    attempts++;
+                    if (frame.contentWindow && frame.contentWindow.LoadURL) {
+                        clearInterval(checkInterval);
+                        loadPresetIntoFrame(frame, presetObj, presetName);
+                    } else if (attempts > 20) { // 2 seconds timeout
+                        clearInterval(checkInterval);
+                        console.error("LoadURL never became available on " + frameId);
+                    }
+                }, 100);
+            }
+            frame.onload = null; 
+        };
+    }
+            
+                function loadPresetIntoFrame(frame, presetObj, presetName) {
+                    if (presetObj && presetObj.data) {
+                         console.log(`Calling LoadURL(null, data)`);
+                         let configData = presetObj.data;
+                         if (typeof configData === 'string') {
+                             try { configData = JSON.parse(configData); } catch(e) { console.error("JSON Parse Error", e); }
+                         }
+                         frame.contentWindow.LoadURL(null, configData);
+                    } else {
+                        let loadPath = './presets/' + presetName;
+                        console.log(`Calling LoadURL('${loadPath}')`);
+                        frame.contentWindow.LoadURL(loadPath);
+                    }
+                }    
+    function launchApp(fileSelId, optSelId) {
+        const fileSel = document.getElementById(fileSelId);
+        const optSel = document.getElementById(optSelId);
+        let url = fileSel.value;
+        if(optSel && optSel.value) {
+            // Append hash safely
+            url += "#config=" + optSel.value;
+        }
+        if(url) window.open(url, '_blank');
+    }
+
+    function playMusic(filename) {
+        if (!filename) return;
+        
+        if (filename === "__BROWSE__") {
+            document.getElementById('fileBrowserModal').style.display = 'block';
+            fetchServerFiles(currentServerPath); // Initial Load
+            // Reset select to prompt so "Browse" can be selected again if cancelled
+             document.getElementById('musicSelect').selectedIndex = 0;
+            return;
+        }
+
+        const audio = document.getElementById('mainAudio');
+        const sel = document.getElementById('musicSelect');
+        
+        // Only update select if it's a known file in the list, otherwise leave it (or set to custom)
+        // Since we play files not in the list, we might want to just let it be.
+        // But if it IS in the list, select it.
+        let found = false;
+        for(let i=0; i<sel.options.length; i++) {
+            if(sel.options[i].value === filename) {
+                sel.selectedIndex = i;
+                found = true;
+                break;
+            }
+        }
+
+        if (!filename.includes('/') && !filename.startsWith('blob:') && !filename.includes(':')) {
+            audio.src = "./music/" + filename;
+        } else if (filename.startsWith('blob:')) {
+             audio.src = filename;
+        } else {
+            // Absolute path or full URL
+            // Ensure server can handle it.
+            // If it's a Windows path "C:\...", browser might struggle if we just set src="C:\..."
+            // It needs to be a URL. 
+            // If it comes from the server browser (file.path), it's "C:\GeminiProjects..."
+            // We need to prepend '/' for the server to intercept it as a relative URL request.
+            // AND we should probably URL encode it to be safe, but my server logic did decodeURIComponent.
+            // Let's try prepending '/'.
+            
+            // Check if it's a drive path
+            if (filename.match(/^[a-zA-Z]:/) || filename.startsWith('\\\\')) {
+                 audio.src = '/' + filename; 
+            } else {
+                 audio.src = filename;
+            }
+        }
+        
+        audio.play().catch(e => console.log("Auto-play prevented or error:", e));
+    }
+    
+    function playNextTrack() {
+        const sel = document.getElementById('musicSelect');
+        const currentIdx = sel.selectedIndex;
+        if (currentIdx < sel.options.length - 1) {
+            const nextVal = sel.options[currentIdx + 1].value;
+            if(nextVal) playMusic(nextVal);
+        } else {
+             // Loop to start?
+             const nextVal = sel.options[1].value; // skip prompt
+             if(nextVal) playMusic(nextVal);
+        }
+    }
+
+    function showHelp(helpKey) {
+        const content = helpData[helpKey] || helpData["default"];
+        const helpBox = document.getElementById('helpContent');
+        const helpContainer = document.getElementById('helpArea');
+        
+        if (helpBox.innerText !== content) {
+            helpBox.innerText = content;
+            helpContainer.scrollTop = 0;
+        }
+    }
+    
+    function openPicModal(title, src) {
+        const modal = document.getElementById("picModal");
+        const img = document.getElementById("picModalContent");
+        const caption = document.getElementById("picCaption");
+        
+        modal.style.display = "block";
+        img.src = src;
+        caption.innerHTML = title;
+    }
+
+    // Start
+    init();
+
+</script>
+
+</body>
+</html>
