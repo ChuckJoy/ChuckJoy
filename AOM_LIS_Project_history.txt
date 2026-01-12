@@ -1,0 +1,43 @@
+# AOM & LIS Project History
+Date: January 11, 2026
+
+## Overview
+This document tracks the evolution of the Art of Motion (AOM) and Lost In Space (LIS) visualization project.
+
+## Phase 1: Node.js Prototype (Legacy)
+- **Architecture**: Custom Node.js HTTP server (`3Dserver-cda1.js`).
+- **Data Storage**: Flat file system. 
+    - Presets stored as `.json` files in `presets/`.
+    - Music stored in `music/`.
+- **Client**: HTML/JS files (`LostInSpace.html`, `AOM...html`) directly accessing the file system via custom server endpoints.
+- **Limitations**: Hard to manage state, limited input flexibility, security concerns with raw file access.
+
+## Phase 2: Migration to LAMP Stack (Current Status)
+- **Goal**: Professionalize the backend, enable standard database features, and prepare for complex mappings.
+- **Server**: Migrated to Apache/PHP (XAMPP environment).
+- **Database**: MySQL (MariaDB).
+    - **Tables**:
+        - `presets`: Stores scene configurations and visual states.
+        - `music`: Indexes available audio files.
+        - `control_mappings` (New): Stores links between Inputs (MIDI/Audio) and Parameters.
+- **API**: Created `api.php` to handle all frontend requests (CRUD operations for presets, music, and mappings).
+- **Utilities**:
+    - `populate_db.php`: Script to scan the file system and ingest existing JSON presets and MP3 files into the MySQL database.
+    - `db_connect.php`: Centralized database connection logic.
+    - `setup.sql`: Database schema definition.
+
+## Phase 3: The Universal Control Matrix (In Progress)
+- **Objective**: Abstract control logic to allow any input to drive any parameter.
+- **Key Concepts**:
+    1.  **Input Manager**: Normalizes all inputs (MIDI, Audio FFT, Mouse, LFOs) to a standard `0.0 - 1.0` float range.
+    2.  **Parameter Registry**: Central registry of all controllable variables in the visualization (e.g., `config.radius`, `config.speed`).
+    3.  **Modulation Matrix**: The logic layer that links Inputs to Parameters with math (Amount, Offset).
+- **Implementation Steps**:
+    - Database schema updated to support `control_mappings`.
+    - `api.php` updated to save/load mappings.
+    - Frontend integration of `InputManager` class (Next Step).
+
+## File Locations
+- **Source**: `C:\GeminiProjects1\TuneToLightWebsite`
+- **Deployment**: `C:\xampp\htdocs\tunetolight`
+- **Backups**: `archive_node_version/` (Contains original HTML files before PHP integration).

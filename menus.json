@@ -1,0 +1,55 @@
+{
+  "menus": [
+    {
+      "title": "Main",
+      "items": [
+        {"label": "Home", "url": "index.html", "hotkey": "H"},
+        {"label": "Reset All", "action": "resetAll", "hotkey": "R"}
+      ]
+    },
+    {
+      "title": "Demos",
+      "items": [
+        {"label": "Art of Motion", "url": "AOM-M6-helix-mic-LOOP-client.html", "hotkey": "1"},
+        {"label": "Lost In Space", "url": "LostInSpace.html", "hotkey": "2"},
+        {"label": "FFT Visualizer", "url": "LostInSpaceFFT.html", "hotkey": "3"}
+      ]
+    },
+    {
+      "title": "Audio",
+      "items": [
+        {"label": "RC505 Loop Player", "url": "RC505_Loop_Player_v7.html"},
+        {"label": "Play Audio", "action": "playMusic", "hotkey": "P"},
+        {"label": "Stop Audio", "action": "stopMusic", "hotkey": "S"}
+
+      ]
+    },
+    {
+      "title": "Visuals",
+      "items": [
+        {"label": "Toggle Fullscreen", "action": "toggleFS", "hotkey": "F11"},
+        {"label": "Random Preset", "action": "randomPreset", "hotkey": "P"}
+      ]
+    },
+    {
+      "title": "Help",
+      "items": [
+        {"label": "Show Help", "action": "showHelpMain", "hotkey": "F1"},
+        {"label": "About", "action": "showAbout", "hotkey": "A"}
+      ]
+    },
+    {
+      "title": "Other Sites",
+      "items": [
+        {"label": "Ngoni", "action": "showPicture('Ngoni', 'images/background_image1.png')", "description": "Traditional African String Instrument"},
+        {"label": "False Idols", "action": "showPicture('False Idols', 'images/background_image2.png')", "description": "Wood Turnings - Statues"},
+        {"label": "Hot Springs", "action": "showPicture('Hot Springs', 'images/background_image3.png')", "description": "T or C NM Renovation Project"},
+        {"label": "Family", "action": "showPicture('Family', 'images/background_image4.png')", "description": "Family Gatherings"},
+        {"label": "Music Projects", "action": "showPicture('Music Projects', 'images/background_image5.png')", "description": "Studio Session Photos"},
+        {"label": "RC505 Loop Player","url": "RC505_Loop_Player_v7.html", "description": "RC505 Loop Player"},
+        {"label": "THREE 3D Graphics","url": "https://threejs.org", "description": "THREE 3D Graphics","action": "showPicture('Music Projects', 'images/background_image6.png')"}
+
+      ]
+    }
+  ]
+}
