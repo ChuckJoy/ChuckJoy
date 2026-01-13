@@ -651,7 +651,8 @@
         { name: "Lost In Space (Main)", url: "LostInSpace_Unified.html?mode=Standard" },
         { name: "Lost In Space (FFT)", url: "LostInSpace_Unified.html?mode=FFT" },
         { name: "Lost In Space (Legacy)", url: "LostInSpace.html" },
-        { name: "Lost In Space (Legacy FFT)", url: "LostInSpaceFFT.html" }
+        { name: "Lost In Space (Legacy FFT)", url: "LostInSpaceFFT.html" },
+        { name: "AOM LIS Image Viewer", url: "AOMLIS_ImageViewer.html" }
         
     ];
 
@@ -1087,6 +1088,9 @@
                          let configData = presetObj.data;
                          if (typeof configData === 'string') {
                              try { configData = JSON.parse(configData); } catch(e) { console.error("JSON Parse Error", e); }
+                         }
+                         if (configData && typeof configData === 'object' && presetObj.image_path) {
+                             configData.image = presetObj.image_path;
                          }
                          frame.contentWindow.LoadURL(null, configData);
                     } else {

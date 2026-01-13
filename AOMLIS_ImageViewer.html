@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AOM LIS Image Viewer</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #image-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #mainImage {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain; /* Ensure whole image is seen */
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 10px 20px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: opacity 0.3s;
+            z-index: 100;
+        }
+
+        #controls:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #fff;
+            color: #fff;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        input[type=range] {
+            width: 100px;
+        }
+
+        #filename-display {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            pointer-events: none;
+            text-shadow: 1px 1px 2px #000;
+        }
+
+        /* Loading indicator */
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 20px;
+            display: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="image-container">
+        <img id="mainImage" src="" alt="Viewer">
+    </div>
+
+    <div id="filename-display"></div>
+    <div id="loading">Loading...</div>
+
+    <div id="controls">
+        <button id="btnPrev" onclick="prevImage()">&#10094; Prev</button>
+        <button id="btnPlay" onclick="togglePlay()">Play</button>
+        <button id="btnNext" onclick="nextImage()">Next &#10095;</button>
+        
+        <div class="slider-container">
+            <label for="durationSlider">Time:</label>
+            <input type="range" id="durationSlider" min="1" max="10" value="3" oninput="updateDurationDisplay()">
+            <span id="durationValue">3s</span>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let images = [];
+        let currentIndex = -1;
+        let isPlaying = false;
+        let timer = null;
+        let duration = 3000; // ms
+        
+        // DOM Elements
+        const imgElement = document.getElementById('mainImage');
+        const btnPlay = document.getElementById('btnPlay');
+        const slider = document.getElementById('durationSlider');
+        const durationDisplay = document.getElementById('durationValue');
+        const filenameDisplay = document.getElementById('filename-display');
+        const loadingDiv = document.getElementById('loading');
+
+        // Defaults
+        const DEFAULT_IMAGE = "background_image1.png";
+
+        async function init() {
+            // 1. Fetch Images
+            try {
+                loadingDiv.style.display = 'block';
+                const res = await fetch('api_v2.php?action=get_images');
+                const data = await res.json();
+                
+                if (Array.isArray(data) && data.length > 0) {
+                    images = data;
+                } else {
+                    console.warn("No images found from API, using fallback.");
+                    images = [DEFAULT_IMAGE];
+                }
+            } catch (e) {
+                console.error("Error fetching images:", e);
+                images = [DEFAULT_IMAGE];
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
+
+            // 2. Check URL Params / Initial Load
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialImage = urlParams.get('image') || DEFAULT_IMAGE;
+            const startPlaying = urlParams.get('autoplay') === 'true';
+
+            // Find index of initial image
+            let foundIndex = images.indexOf(initialImage);
+            if (foundIndex === -1) {
+                // Try to find approximate match if not exact
+                foundIndex = images.findIndex(img => img.includes(initialImage));
+            }
+            
+            currentIndex = foundIndex !== -1 ? foundIndex : 0;
+            
+            showImage(currentIndex);
+
+            if (startPlaying) {
+                togglePlay(true);
+            }
+        }
+
+        // --- Core Functions ---
+
+        function showImage(index) {
+            if (images.length === 0) return;
+            
+            // Wrap around
+            if (index >= images.length) index = 0;
+            if (index < 0) index = images.length - 1;
+
+            currentIndex = index;
+            const filename = images[currentIndex];
+            imgElement.src = "images/" + filename;
+            filenameDisplay.innerText = filename + ` (${currentIndex + 1}/${images.length})`;
+        }
+
+        function nextImage() {
+            showImage(currentIndex + 1);
+            if (isPlaying) resetTimer(); // Reset timer if manually moved while playing
+        }
+
+        function prevImage() {
+            showImage(currentIndex - 1);
+            if (isPlaying) resetTimer();
+        }
+
+        function togglePlay(forceState) {
+            if (typeof forceState !== 'undefined') {
+                isPlaying = forceState;
+            } else {
+                isPlaying = !isPlaying;
+            }
+
+            btnPlay.innerText = isPlaying ? "Stop" : "Play";
+            
+            if (isPlaying) {
+                startTimer();
+            } else {
+                stopTimer();
+            }
+        }
+
+        function startTimer() {
+            stopTimer(); // clear existing
+            timer = setInterval(() => {
+                nextImage();
+            }, duration);
+        }
+
+        function stopTimer() {
+            if (timer) clearInterval(timer);
+            timer = null;
+        }
+
+        function resetTimer() {
+            if (isPlaying) startTimer();
+        }
+
+        function updateDurationDisplay() {
+            const val = slider.value;
+            duration = val * 1000;
+            durationDisplay.innerText = val + "s";
+            if (isPlaying) resetTimer();
+        }
+
+        function adjustDuration(delta) {
+            let newVal = parseInt(slider.value) + delta;
+            if (newVal < 1) newVal = 1;
+            if (newVal > 10) newVal = 10;
+            slider.value = newVal;
+            updateDurationDisplay();
+        }
+
+        // --- External Interface (for index.html Presets) ---
+
+        // The parent index.html calls LoadURL(data) when a preset is selected.
+        // We will interpret 'data' as the image filename.
+        window.LoadURL = function(pathOrConfig, configObject) {
+            console.log("LoadURL called", pathOrConfig, configObject);
+            let target = "";
+            
+            // Check if it's a direct path (legacy)
+            if (typeof pathOrConfig === 'string' && pathOrConfig) {
+                // Usually paths are like "./presets/File.json", but here we expect image names
+                // or maybe we just assume whatever string is passed is an image name if it looks like one
+                const parts = pathOrConfig.split('/');
+                target = parts[parts.length - 1]; // Get filename
+            }
+            
+            // Check if it's a config object (modern api_v2 way)
+            if (configObject && configObject.image) {
+                target = configObject.image;
+            } else if (configObject && typeof configObject === 'string') {
+                 // Sometimes the data is just a string (the filename)
+                 target = configObject;
+            }
+            
+            // Clean up target (remove extension if needed, or fuzzy match)
+            if (target) {
+                // If it's a full path, strip it
+                if (target.includes('/')) {
+                     const parts = target.split('/');
+                     target = parts[parts.length - 1];
+                }
+                
+                // Find in list
+                let idx = images.findIndex(img => img === target);
+                if (idx === -1) {
+                    // Fuzzy match (e.g. preset name matches image name)
+                    idx = images.findIndex(img => img.toLowerCase().includes(target.toLowerCase()));
+                }
+
+                if (idx !== -1) {
+                    showImage(idx);
+                } else {
+                    console.warn("Image not found for preset:", target);
+                }
+            }
+        };
+
+        // --- Event Listeners ---
+
+        window.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case ' ': // Space
+                    e.preventDefault();
+                    togglePlay();
+                    break;
+                case 'n':
+                case 'N':
+                    nextImage();
+                    break;
+                case 'q':
+                case 'Q':
+                    adjustDuration(1);
+                    break;
+                case 'a':
+                case 'A':
+                    adjustDuration(-1);
+                    break;
+                case 'ArrowRight':
+                    nextImage();
+                    break;
+                case 'ArrowLeft':
+                    prevImage();
+                    break;
+            }
+        });
+
+        // Initialize on load
+        window.onload = init;
+
+    </script>
+</body>
+</html>

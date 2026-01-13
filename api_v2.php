@@ -29,7 +29,7 @@ try {
 
     if ($action === 'get_presets') {
         $type = $_GET['type'] ?? '';
-        $sql = "SELECT id, name, type, data, created_at FROM presets";
+        $sql = "SELECT id, name, type, data, image_path, created_at FROM presets";
         $params = [];
         if ($type) {
             $sql .= " WHERE type = ?";
